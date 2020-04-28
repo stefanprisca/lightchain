@@ -1,0 +1,35 @@
+syntax="proto3";
+
+option go_package = "api/lightpeer";
+
+service Lightpeer {
+    rpc Connect (ConnectRequest) returns (ConnectResponse) {};
+    rpc Execute (TransactionRequest) returns (TrasactionResponse) {};
+    rpc NotifyNewBlock (NewBlockRequest) returns (NewBlockResponse) {};
+}
+
+message ConnectRequest {
+    string IP  = 1;
+}
+
+message ConnectResponse {
+    string Response = 1;
+}
+
+message TransactionRequest {
+    string Payload = 1;
+    // otel.SpanContext teleContext
+}
+
+message TrasactionResponse {
+    string Response = 1;
+}
+
+message NewBlockRequest {
+    string Contents = 1;
+    string UID = 2;
+}
+
+message NewBlockResponse {
+    string Response = 1;
+}
