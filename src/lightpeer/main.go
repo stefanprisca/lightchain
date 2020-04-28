@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 
+	"github.com/stefanprisca/lightchain/src/api/lightpeer"
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
 	"google.golang.org/grpc"
 )
@@ -23,8 +24,8 @@ func (s *server) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.Pers
 	return &pb.PersistResponse{}, nil
 }
 
-func (s *server) Query(ctx context.Context, qReq *pb.EmptyQueryRequest) (stream pb.Lightblock, error) {
-	return &pb.PersistResponse{}, nil
+func (s *server) Query(qReq *pb.EmptyQueryRequest, stream lightpeer.Lightpeer_QueryServer) error {
+	return nil
 }
 
 func (s *server) NotifyNewBlock(ctx context.Context, nbReq *pb.NewBlockRequest) (*pb.NewBlockResponse, error) {
