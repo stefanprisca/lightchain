@@ -24,6 +24,53 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
+type Lightblock struct {
+	ID                   string   `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
+	Payload              []byte   `protobuf:"bytes,2,opt,name=Payload,proto3" json:"Payload,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Lightblock) Reset()         { *m = Lightblock{} }
+func (m *Lightblock) String() string { return proto.CompactTextString(m) }
+func (*Lightblock) ProtoMessage()    {}
+func (*Lightblock) Descriptor() ([]byte, []int) {
+	return fileDescriptor_fcee3e88f49c2881, []int{0}
+}
+
+func (m *Lightblock) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Lightblock.Unmarshal(m, b)
+}
+func (m *Lightblock) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Lightblock.Marshal(b, m, deterministic)
+}
+func (m *Lightblock) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Lightblock.Merge(m, src)
+}
+func (m *Lightblock) XXX_Size() int {
+	return xxx_messageInfo_Lightblock.Size(m)
+}
+func (m *Lightblock) XXX_DiscardUnknown() {
+	xxx_messageInfo_Lightblock.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Lightblock proto.InternalMessageInfo
+
+func (m *Lightblock) GetID() string {
+	if m != nil {
+		return m.ID
+	}
+	return ""
+}
+
+func (m *Lightblock) GetPayload() []byte {
+	if m != nil {
+		return m.Payload
+	}
+	return nil
+}
+
 type ConnectRequest struct {
 	IP                   string   `protobuf:"bytes,1,opt,name=IP,proto3" json:"IP,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -35,7 +82,7 @@ func (m *ConnectRequest) Reset()         { *m = ConnectRequest{} }
 func (m *ConnectRequest) String() string { return proto.CompactTextString(m) }
 func (*ConnectRequest) ProtoMessage()    {}
 func (*ConnectRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fcee3e88f49c2881, []int{0}
+	return fileDescriptor_fcee3e88f49c2881, []int{1}
 }
 
 func (m *ConnectRequest) XXX_Unmarshal(b []byte) error {
@@ -74,7 +121,7 @@ func (m *ConnectResponse) Reset()         { *m = ConnectResponse{} }
 func (m *ConnectResponse) String() string { return proto.CompactTextString(m) }
 func (*ConnectResponse) ProtoMessage()    {}
 func (*ConnectResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fcee3e88f49c2881, []int{1}
+	return fileDescriptor_fcee3e88f49c2881, []int{2}
 }
 
 func (m *ConnectResponse) XXX_Unmarshal(b []byte) error {
@@ -102,83 +149,114 @@ func (m *ConnectResponse) GetResponse() string {
 	return ""
 }
 
-type TransactionRequest struct {
+type PersistRequest struct {
 	Payload              string   `protobuf:"bytes,1,opt,name=Payload,proto3" json:"Payload,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *TransactionRequest) Reset()         { *m = TransactionRequest{} }
-func (m *TransactionRequest) String() string { return proto.CompactTextString(m) }
-func (*TransactionRequest) ProtoMessage()    {}
-func (*TransactionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fcee3e88f49c2881, []int{2}
+func (m *PersistRequest) Reset()         { *m = PersistRequest{} }
+func (m *PersistRequest) String() string { return proto.CompactTextString(m) }
+func (*PersistRequest) ProtoMessage()    {}
+func (*PersistRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_fcee3e88f49c2881, []int{3}
 }
 
-func (m *TransactionRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TransactionRequest.Unmarshal(m, b)
+func (m *PersistRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_PersistRequest.Unmarshal(m, b)
 }
-func (m *TransactionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TransactionRequest.Marshal(b, m, deterministic)
+func (m *PersistRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_PersistRequest.Marshal(b, m, deterministic)
 }
-func (m *TransactionRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TransactionRequest.Merge(m, src)
+func (m *PersistRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PersistRequest.Merge(m, src)
 }
-func (m *TransactionRequest) XXX_Size() int {
-	return xxx_messageInfo_TransactionRequest.Size(m)
+func (m *PersistRequest) XXX_Size() int {
+	return xxx_messageInfo_PersistRequest.Size(m)
 }
-func (m *TransactionRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_TransactionRequest.DiscardUnknown(m)
+func (m *PersistRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_PersistRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_TransactionRequest proto.InternalMessageInfo
+var xxx_messageInfo_PersistRequest proto.InternalMessageInfo
 
-func (m *TransactionRequest) GetPayload() string {
+func (m *PersistRequest) GetPayload() string {
 	if m != nil {
 		return m.Payload
 	}
 	return ""
 }
 
-type TransactionResponse struct {
+type PersistResponse struct {
 	Response             string   `protobuf:"bytes,1,opt,name=Response,proto3" json:"Response,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *TransactionResponse) Reset()         { *m = TransactionResponse{} }
-func (m *TransactionResponse) String() string { return proto.CompactTextString(m) }
-func (*TransactionResponse) ProtoMessage()    {}
-func (*TransactionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fcee3e88f49c2881, []int{3}
+func (m *PersistResponse) Reset()         { *m = PersistResponse{} }
+func (m *PersistResponse) String() string { return proto.CompactTextString(m) }
+func (*PersistResponse) ProtoMessage()    {}
+func (*PersistResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_fcee3e88f49c2881, []int{4}
 }
 
-func (m *TransactionResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TransactionResponse.Unmarshal(m, b)
+func (m *PersistResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_PersistResponse.Unmarshal(m, b)
 }
-func (m *TransactionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TransactionResponse.Marshal(b, m, deterministic)
+func (m *PersistResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_PersistResponse.Marshal(b, m, deterministic)
 }
-func (m *TransactionResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TransactionResponse.Merge(m, src)
+func (m *PersistResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PersistResponse.Merge(m, src)
 }
-func (m *TransactionResponse) XXX_Size() int {
-	return xxx_messageInfo_TransactionResponse.Size(m)
+func (m *PersistResponse) XXX_Size() int {
+	return xxx_messageInfo_PersistResponse.Size(m)
 }
-func (m *TransactionResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_TransactionResponse.DiscardUnknown(m)
+func (m *PersistResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_PersistResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_TransactionResponse proto.InternalMessageInfo
+var xxx_messageInfo_PersistResponse proto.InternalMessageInfo
 
-func (m *TransactionResponse) GetResponse() string {
+func (m *PersistResponse) GetResponse() string {
 	if m != nil {
 		return m.Response
 	}
 	return ""
 }
+
+type EmptyQueryRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *EmptyQueryRequest) Reset()         { *m = EmptyQueryRequest{} }
+func (m *EmptyQueryRequest) String() string { return proto.CompactTextString(m) }
+func (*EmptyQueryRequest) ProtoMessage()    {}
+func (*EmptyQueryRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_fcee3e88f49c2881, []int{5}
+}
+
+func (m *EmptyQueryRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_EmptyQueryRequest.Unmarshal(m, b)
+}
+func (m *EmptyQueryRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_EmptyQueryRequest.Marshal(b, m, deterministic)
+}
+func (m *EmptyQueryRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EmptyQueryRequest.Merge(m, src)
+}
+func (m *EmptyQueryRequest) XXX_Size() int {
+	return xxx_messageInfo_EmptyQueryRequest.Size(m)
+}
+func (m *EmptyQueryRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_EmptyQueryRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EmptyQueryRequest proto.InternalMessageInfo
 
 type NewBlockRequest struct {
 	Contents             string   `protobuf:"bytes,1,opt,name=Contents,proto3" json:"Contents,omitempty"`
@@ -192,7 +270,7 @@ func (m *NewBlockRequest) Reset()         { *m = NewBlockRequest{} }
 func (m *NewBlockRequest) String() string { return proto.CompactTextString(m) }
 func (*NewBlockRequest) ProtoMessage()    {}
 func (*NewBlockRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fcee3e88f49c2881, []int{4}
+	return fileDescriptor_fcee3e88f49c2881, []int{6}
 }
 
 func (m *NewBlockRequest) XXX_Unmarshal(b []byte) error {
@@ -238,7 +316,7 @@ func (m *NewBlockResponse) Reset()         { *m = NewBlockResponse{} }
 func (m *NewBlockResponse) String() string { return proto.CompactTextString(m) }
 func (*NewBlockResponse) ProtoMessage()    {}
 func (*NewBlockResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fcee3e88f49c2881, []int{5}
+	return fileDescriptor_fcee3e88f49c2881, []int{7}
 }
 
 func (m *NewBlockResponse) XXX_Unmarshal(b []byte) error {
@@ -267,10 +345,12 @@ func (m *NewBlockResponse) GetResponse() string {
 }
 
 func init() {
+	proto.RegisterType((*Lightblock)(nil), "Lightblock")
 	proto.RegisterType((*ConnectRequest)(nil), "ConnectRequest")
 	proto.RegisterType((*ConnectResponse)(nil), "ConnectResponse")
-	proto.RegisterType((*TransactionRequest)(nil), "TransactionRequest")
-	proto.RegisterType((*TransactionResponse)(nil), "TransactionResponse")
+	proto.RegisterType((*PersistRequest)(nil), "PersistRequest")
+	proto.RegisterType((*PersistResponse)(nil), "PersistResponse")
+	proto.RegisterType((*EmptyQueryRequest)(nil), "EmptyQueryRequest")
 	proto.RegisterType((*NewBlockRequest)(nil), "NewBlockRequest")
 	proto.RegisterType((*NewBlockResponse)(nil), "NewBlockResponse")
 }
@@ -280,24 +360,27 @@ func init() {
 }
 
 var fileDescriptor_fcee3e88f49c2881 = []byte{
-	// 271 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x8c, 0x91, 0x41, 0x4b, 0xc3, 0x40,
-	0x10, 0x85, 0x9b, 0x0a, 0xc6, 0x0e, 0x98, 0xc4, 0xad, 0x87, 0x90, 0x53, 0xd9, 0x93, 0x17, 0x47,
-	0x54, 0xd0, 0xa3, 0x50, 0xf5, 0x50, 0x90, 0x52, 0x8a, 0x5e, 0xbc, 0xad, 0x71, 0xd4, 0x60, 0xd8,
-	0x8d, 0xd9, 0x29, 0xda, 0xff, 0xe4, 0x8f, 0x74, 0x2d, 0xd9, 0x48, 0xa3, 0x60, 0x6f, 0x33, 0xcb,
-	0xdb, 0x37, 0x6f, 0xbe, 0x81, 0xb8, 0x2c, 0x9e, 0x5f, 0xb8, 0x22, 0xaa, 0xb1, 0xaa, 0x0d, 0x1b,
-	0x39, 0x82, 0xe8, 0xd2, 0x68, 0x4d, 0x39, 0xcf, 0xe9, 0x6d, 0x41, 0x96, 0x45, 0x04, 0xfd, 0xc9,
-	0x2c, 0x0d, 0x46, 0xc1, 0xc1, 0x60, 0xee, 0x2a, 0x79, 0x08, 0x71, 0xab, 0xb0, 0x95, 0xd1, 0x96,
-	0x44, 0x06, 0x3b, 0xbe, 0x6e, 0x84, 0x6d, 0x2f, 0x11, 0xc4, 0x6d, 0xad, 0xb4, 0x55, 0x39, 0x17,
-	0x46, 0x7b, 0xd3, 0x14, 0xc2, 0x99, 0x5a, 0x96, 0x46, 0x3d, 0x36, 0x1f, 0x7c, 0x2b, 0x8f, 0x61,
-	0xb8, 0xa6, 0xdf, 0x60, 0xc4, 0x05, 0xc4, 0x53, 0x7a, 0x1f, 0x97, 0x26, 0x7f, 0xf5, 0xfe, 0x4e,
-	0xee, 0x42, 0x32, 0x69, 0xb6, 0x5e, 0xee, 0x7b, 0x91, 0xc0, 0xd6, 0xdd, 0xe4, 0x2a, 0xed, 0xaf,
-	0x9e, 0xbf, 0x4b, 0x97, 0x31, 0xf9, 0x31, 0xf8, 0x7f, 0xe0, 0xc9, 0x67, 0x00, 0x83, 0x1b, 0x0f,
-	0x4e, 0x20, 0x84, 0x0d, 0x10, 0x11, 0xe3, 0x3a, 0xbc, 0x2c, 0xc1, 0x0e, 0x2b, 0xd9, 0x13, 0x67,
-	0x10, 0x5e, 0x7f, 0x50, 0xbe, 0x60, 0x12, 0x43, 0xfc, 0xcd, 0x26, 0xdb, 0xc7, 0x3f, 0x00, 0xb8,
-	0x7f, 0xe7, 0x10, 0x4d, 0x0d, 0x17, 0x4f, 0x4b, 0x9f, 0x55, 0x24, 0xd8, 0xd9, 0x3b, 0xdb, 0xc3,
-	0xee, 0x22, 0xb2, 0x37, 0x8e, 0xef, 0x77, 0x55, 0x55, 0x1c, 0xb5, 0xa7, 0x7e, 0xd8, 0x5e, 0xdd,
-	0xfa, 0xf4, 0x2b, 0x00, 0x00, 0xff, 0xff, 0x27, 0xb1, 0xf2, 0x5f, 0xfe, 0x01, 0x00, 0x00,
+	// 315 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x8c, 0x92, 0x31, 0x4f, 0xfb, 0x30,
+	0x10, 0xc5, 0x93, 0xfc, 0xf5, 0xa7, 0xf4, 0x80, 0x24, 0x35, 0x4b, 0x94, 0xa9, 0xf2, 0x84, 0x10,
+	0x18, 0x04, 0x12, 0x8c, 0x48, 0x05, 0x06, 0xa4, 0xaa, 0x0a, 0x91, 0x58, 0xd8, 0xd2, 0x72, 0x40,
+	0x44, 0x88, 0x4d, 0xec, 0x0a, 0xe5, 0x6b, 0xf2, 0x89, 0x70, 0x42, 0xec, 0xd2, 0x30, 0xc0, 0x76,
+	0x77, 0x7a, 0x7e, 0xe7, 0xf7, 0xb3, 0x21, 0x28, 0xf2, 0xa7, 0x67, 0x25, 0x10, 0x2b, 0x26, 0x2a,
+	0xae, 0x38, 0x3d, 0x03, 0x98, 0x36, 0xa3, 0x79, 0xc1, 0x17, 0x2f, 0xc4, 0x07, 0xef, 0xe6, 0x2a,
+	0x72, 0xc7, 0xee, 0xde, 0x30, 0xd5, 0x15, 0x89, 0x60, 0x90, 0x64, 0x75, 0xc1, 0xb3, 0x87, 0xc8,
+	0xd3, 0xc3, 0xed, 0xd4, 0xb4, 0x74, 0x0c, 0xfe, 0x25, 0x2f, 0x4b, 0x5c, 0xa8, 0x14, 0xdf, 0x96,
+	0x28, 0x55, 0x7b, 0x36, 0xb1, 0x67, 0x13, 0x7a, 0x08, 0x81, 0x55, 0x48, 0xc1, 0x4b, 0x89, 0x24,
+	0x86, 0x4d, 0x53, 0x77, 0x42, 0xdb, 0xd3, 0x7d, 0xf0, 0x13, 0xac, 0x64, 0x2e, 0xad, 0xe1, 0xb7,
+	0xe5, 0x5f, 0x62, 0xbb, 0x5c, 0x5b, 0x5b, 0xed, 0x1f, 0xac, 0x77, 0x61, 0x74, 0xfd, 0x2a, 0x54,
+	0x7d, 0xbb, 0xc4, 0xaa, 0xee, 0xdc, 0xe9, 0x05, 0x04, 0x33, 0x7c, 0x9f, 0x34, 0xb1, 0xcd, 0x42,
+	0xed, 0xa1, 0x6f, 0xac, 0xb0, 0x54, 0xd2, 0x78, 0x98, 0x9e, 0x84, 0xf0, 0xef, 0x4e, 0xa3, 0xf1,
+	0xda, 0x71, 0x53, 0x52, 0x06, 0xe1, 0xca, 0xe0, 0xf7, 0x5b, 0x9c, 0x7c, 0xb8, 0x30, 0x9c, 0x1a,
+	0xfa, 0x84, 0xc1, 0xa0, 0xa3, 0x43, 0x02, 0xb6, 0x4e, 0x32, 0x0e, 0x59, 0x0f, 0x1c, 0x75, 0x1a,
+	0x7d, 0x17, 0x59, 0xeb, 0xd7, 0x41, 0x69, 0x7d, 0x8f, 0x86, 0xd6, 0x1f, 0xc0, 0xff, 0x36, 0x2e,
+	0x21, 0xec, 0x47, 0xf6, 0x78, 0x8b, 0xad, 0xde, 0x9c, 0x3a, 0xc7, 0x2e, 0x39, 0x07, 0x7f, 0xc6,
+	0x55, 0xfe, 0x58, 0x9b, 0x44, 0x24, 0x64, 0x3d, 0x3a, 0xf1, 0x88, 0xf5, 0xe3, 0x52, 0x67, 0x12,
+	0xdc, 0xef, 0x64, 0x22, 0x3f, 0xb2, 0xbf, 0x6a, 0xbe, 0xd1, 0x7e, 0xab, 0xd3, 0xcf, 0x00, 0x00,
+	0x00, 0xff, 0xff, 0xdc, 0x64, 0x64, 0x2b, 0x69, 0x02, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -313,7 +396,8 @@ const _ = grpc.SupportPackageIsVersion6
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type LightpeerClient interface {
 	Connect(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (*ConnectResponse, error)
-	Execute(ctx context.Context, in *TransactionRequest, opts ...grpc.CallOption) (*TransactionResponse, error)
+	Persist(ctx context.Context, in *PersistRequest, opts ...grpc.CallOption) (*PersistResponse, error)
+	Query(ctx context.Context, in *EmptyQueryRequest, opts ...grpc.CallOption) (Lightpeer_QueryClient, error)
 	NotifyNewBlock(ctx context.Context, in *NewBlockRequest, opts ...grpc.CallOption) (*NewBlockResponse, error)
 }
 
@@ -334,13 +418,45 @@ func (c *lightpeerClient) Connect(ctx context.Context, in *ConnectRequest, opts 
 	return out, nil
 }
 
-func (c *lightpeerClient) Execute(ctx context.Context, in *TransactionRequest, opts ...grpc.CallOption) (*TransactionResponse, error) {
-	out := new(TransactionResponse)
-	err := c.cc.Invoke(ctx, "/Lightpeer/Execute", in, out, opts...)
+func (c *lightpeerClient) Persist(ctx context.Context, in *PersistRequest, opts ...grpc.CallOption) (*PersistResponse, error) {
+	out := new(PersistResponse)
+	err := c.cc.Invoke(ctx, "/Lightpeer/Persist", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *lightpeerClient) Query(ctx context.Context, in *EmptyQueryRequest, opts ...grpc.CallOption) (Lightpeer_QueryClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Lightpeer_serviceDesc.Streams[0], "/Lightpeer/Query", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &lightpeerQueryClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Lightpeer_QueryClient interface {
+	Recv() (*Lightblock, error)
+	grpc.ClientStream
+}
+
+type lightpeerQueryClient struct {
+	grpc.ClientStream
+}
+
+func (x *lightpeerQueryClient) Recv() (*Lightblock, error) {
+	m := new(Lightblock)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *lightpeerClient) NotifyNewBlock(ctx context.Context, in *NewBlockRequest, opts ...grpc.CallOption) (*NewBlockResponse, error) {
@@ -355,7 +471,8 @@ func (c *lightpeerClient) NotifyNewBlock(ctx context.Context, in *NewBlockReques
 // LightpeerServer is the server API for Lightpeer service.
 type LightpeerServer interface {
 	Connect(context.Context, *ConnectRequest) (*ConnectResponse, error)
-	Execute(context.Context, *TransactionRequest) (*TransactionResponse, error)
+	Persist(context.Context, *PersistRequest) (*PersistResponse, error)
+	Query(*EmptyQueryRequest, Lightpeer_QueryServer) error
 	NotifyNewBlock(context.Context, *NewBlockRequest) (*NewBlockResponse, error)
 }
 
@@ -366,8 +483,11 @@ type UnimplementedLightpeerServer struct {
 func (*UnimplementedLightpeerServer) Connect(ctx context.Context, req *ConnectRequest) (*ConnectResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Connect not implemented")
 }
-func (*UnimplementedLightpeerServer) Execute(ctx context.Context, req *TransactionRequest) (*TransactionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Execute not implemented")
+func (*UnimplementedLightpeerServer) Persist(ctx context.Context, req *PersistRequest) (*PersistResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Persist not implemented")
+}
+func (*UnimplementedLightpeerServer) Query(req *EmptyQueryRequest, srv Lightpeer_QueryServer) error {
+	return status.Errorf(codes.Unimplemented, "method Query not implemented")
 }
 func (*UnimplementedLightpeerServer) NotifyNewBlock(ctx context.Context, req *NewBlockRequest) (*NewBlockResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NotifyNewBlock not implemented")
@@ -395,22 +515,43 @@ func _Lightpeer_Connect_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Lightpeer_Execute_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TransactionRequest)
+func _Lightpeer_Persist_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PersistRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LightpeerServer).Execute(ctx, in)
+		return srv.(LightpeerServer).Persist(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Lightpeer/Execute",
+		FullMethod: "/Lightpeer/Persist",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LightpeerServer).Execute(ctx, req.(*TransactionRequest))
+		return srv.(LightpeerServer).Persist(ctx, req.(*PersistRequest))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _Lightpeer_Query_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(EmptyQueryRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(LightpeerServer).Query(m, &lightpeerQueryServer{stream})
+}
+
+type Lightpeer_QueryServer interface {
+	Send(*Lightblock) error
+	grpc.ServerStream
+}
+
+type lightpeerQueryServer struct {
+	grpc.ServerStream
+}
+
+func (x *lightpeerQueryServer) Send(m *Lightblock) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _Lightpeer_NotifyNewBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -440,14 +581,20 @@ var _Lightpeer_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Lightpeer_Connect_Handler,
 		},
 		{
-			MethodName: "Execute",
-			Handler:    _Lightpeer_Execute_Handler,
+			MethodName: "Persist",
+			Handler:    _Lightpeer_Persist_Handler,
 		},
 		{
 			MethodName: "NotifyNewBlock",
 			Handler:    _Lightpeer_NotifyNewBlock_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Query",
+			Handler:       _Lightpeer_Query_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "lightpeer.proto",
 }

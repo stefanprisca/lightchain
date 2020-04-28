@@ -19,8 +19,12 @@ func (s *server) Connect(ctx context.Context, cReq *pb.ConnectRequest) (*pb.Conn
 	return &pb.ConnectResponse{}, nil
 }
 
-func (s *server) Execute(ctx context.Context, tReq *pb.TransactionRequest) (*pb.TransactionResponse, error) {
-	return &pb.TransactionResponse{}, nil
+func (s *server) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.PersistResponse, error) {
+	return &pb.PersistResponse{}, nil
+}
+
+func (s *server) Query(ctx context.Context, qReq *pb.EmptyQueryRequest) (stream pb.Lightblock, error) {
+	return &pb.PersistResponse{}, nil
 }
 
 func (s *server) NotifyNewBlock(ctx context.Context, nbReq *pb.NewBlockRequest) (*pb.NewBlockResponse, error) {

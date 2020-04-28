@@ -2,9 +2,15 @@ syntax="proto3";
 
 option go_package = "api/lightpeer";
 
+message Lightblock {
+    string ID  = 1;
+    bytes Payload = 2;
+}
+
 service Lightpeer {
     rpc Connect (ConnectRequest) returns (ConnectResponse) {};
-    rpc Execute (TransactionRequest) returns (TransactionResponse) {};
+    rpc Persist (PersistRequest) returns (PersistResponse) {};
+    rpc Query   (EmptyQueryRequest) returns (stream Lightblock) {};
     rpc NotifyNewBlock (NewBlockRequest) returns (NewBlockResponse) {};
 }
 
@@ -16,14 +22,16 @@ message ConnectResponse {
     string Response = 1;
 }
 
-message TransactionRequest {
+message PersistRequest {
     string Payload = 1;
     // otel.SpanContext teleContext
 }
 
-message TransactionResponse {
+message PersistResponse {
     string Response = 1;
 }
+
+message EmptyQueryRequest {}
 
 message NewBlockRequest {
     string Contents = 1;
