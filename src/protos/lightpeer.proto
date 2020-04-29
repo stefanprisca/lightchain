@@ -2,10 +2,15 @@ syntax="proto3";
 
 option go_package = "api/lightpeer";
 
+import "google/protobuf/timestamp.proto";
+
 message Lightblock {
     string ID  = 1;
     bytes Payload = 2;
     string PrevID = 3;
+
+
+    google.protobuf.Timestamp last_updated = 10;
 }
 
 service Lightpeer {
