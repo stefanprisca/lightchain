@@ -9,14 +9,13 @@ message Lightblock {
     bytes Payload = 2;
     string PrevID = 3;
 
-
     google.protobuf.Timestamp last_updated = 10;
 }
 
 service Lightpeer {
     rpc Connect (ConnectRequest) returns (ConnectResponse) {};
     rpc Persist (PersistRequest) returns (PersistResponse) {};
-    rpc Query   (EmptyQueryRequest) returns (stream Lightblock) {};
+    rpc Query   (EmptyQueryRequest) returns (stream QueryResponse) {};
     rpc NotifyNewBlock (NewBlockRequest) returns (NewBlockResponse) {};
 }
 
@@ -38,6 +37,10 @@ message PersistResponse {
 }
 
 message EmptyQueryRequest {}
+
+message QueryResponse {
+    bytes Payload = 1;
+}
 
 message NewBlockRequest {
     string Contents = 1;
