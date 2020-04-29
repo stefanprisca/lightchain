@@ -2,28 +2,55 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"io/ioutil"
+	"log"
+	"path"
 
+	"github.com/google/uuid"
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
 )
 
 type lightpeer struct {
 	pb.LightpeerServer
+
+	storagePath string
+	state       pb.Lightblock
 }
 
 // Connect will connect to the network specified in the ConnectRequest
-func (s *lightpeer) Connect(ctx context.Context, cReq *pb.ConnectRequest) (*pb.ConnectResponse, error) {
+func (lp *lightpeer) Connect(ctx context.Context, cReq *pb.ConnectRequest) (*pb.ConnectResponse, error) {
 	return &pb.ConnectResponse{}, nil
 }
 
 // Persist creates a new state on the chain, and notifies the network about the new state
-func (s *lightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.PersistResponse, error) {
-	return &pb.PersistResponse{}, nil
+func (lp *lightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.PersistResponse, error) {
+	lightBlock := &pb.Lightblock{
+		ID:      uuid.New().String(),
+		Payload: tReq.Payload,
+	}
+	lp.state = *lightBlock
+
+	out, err := json.Marshal(lightBlock)
+	if err != nil {
+		log.Fatalln("Failed to encode lightblock:", err)
+	}
+
+	outPath := path.Join(lp.storagePath, lightBlock.ID)
+
+	if err := ioutil.WriteFile(outPath, out, 0644); err != nil {
+		log.Fatalln("Failed to write lightblock:", err)
+	}
+	return &pb.PersistResponse{
+		Response: outPath,
+	}, nil
 }
 
-func (s *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_QueryServer) error {
+func (lp *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_QueryServer) error {
+	stream.Send(&lp.state)
 	return nil
 }
 
-func (s *lightpeer) NotifyNewBlock(ctx context.Context, nbReq *pb.NewBlockRequest) (*pb.NewBlockResponse, error) {
+func (lp *lightpeer) NotifyNewBlock(ctx context.Context, nbReq *pb.NewBlockRequest) (*pb.NewBlockResponse, error) {
 	return &pb.NewBlockResponse{}, nil
 }
