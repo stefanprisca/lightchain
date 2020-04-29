@@ -5,6 +5,7 @@ option go_package = "api/lightpeer";
 message Lightblock {
     string ID  = 1;
     bytes Payload = 2;
+    string PrevID = 3;
 }
 
 service Lightpeer {
@@ -23,7 +24,7 @@ message ConnectResponse {
 }
 
 message PersistRequest {
-    string Payload = 1;
+    bytes Payload = 1;
     // otel.SpanContext teleContext
 }
 
