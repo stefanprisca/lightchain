@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"path"
@@ -18,13 +19,10 @@ type lightpeer struct {
 	state       pb.Lightblock
 }
 
-// Connect will connect to the network specified in the ConnectRequest
-func (lp *lightpeer) Connect(ctx context.Context, cReq *pb.ConnectRequest) (*pb.ConnectResponse, error) {
-	return &pb.ConnectResponse{}, nil
-}
-
 // Persist creates a new state on the chain, and notifies the network about the new state
 func (lp *lightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.PersistResponse, error) {
+	log.Printf("got new persist request %v \n", *tReq)
+
 	lightBlock := &pb.Lightblock{
 		ID:      uuid.New().String(),
 		Payload: tReq.Payload,
@@ -34,15 +32,16 @@ func (lp *lightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.
 	}
 	lp.state = *lightBlock
 
+	log.Printf("processing new block %v \n", *lightBlock)
+
 	out, err := json.Marshal(lightBlock)
 	if err != nil {
-		log.Fatalln("Failed to encode lightblock:", err)
+		return &pb.PersistResponse{}, fmt.Errorf("failed to encode lightblock: %v", err)
 	}
-
 	outPath := path.Join(lp.storagePath, lightBlock.ID)
 
 	if err := ioutil.WriteFile(outPath, out, 0644); err != nil {
-		log.Fatalln("Failed to write lightblock:", err)
+		return &pb.PersistResponse{}, fmt.Errorf("failed to write lightblock: %v", err)
 	}
 	return &pb.PersistResponse{
 		Response: outPath,
@@ -70,6 +69,11 @@ func (lp *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_Query
 		blockID = block.PrevID
 	}
 	return nil
+}
+
+// Connect accepts connection from other peers.
+func (lp *lightpeer) Connect(ctx context.Context, cReq *pb.ConnectRequest) (*pb.ConnectResponse, error) {
+	return &pb.ConnectResponse{}, nil
 }
 
 func (lp *lightpeer) NotifyNewBlock(ctx context.Context, nbReq *pb.NewBlockRequest) (*pb.NewBlockResponse, error) {

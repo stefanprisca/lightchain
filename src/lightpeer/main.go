@@ -17,7 +17,9 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
-	pb.RegisterLightpeerServer(grpcServer, &lightpeer{})
+	pb.RegisterLightpeerServer(grpcServer, &lightpeer{
+		storagePath: "testdata",
+	})
 
 	grpcServer.Serve(lis)
 }
