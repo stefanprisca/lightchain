@@ -29,6 +29,9 @@ func (lp *lightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.
 		ID:      uuid.New().String(),
 		Payload: tReq.Payload,
 	}
+	if lp.state.ID != "" {
+		lightBlock.PrevID = lp.state.ID
+	}
 	lp.state = *lightBlock
 
 	out, err := json.Marshal(lightBlock)
@@ -47,7 +50,25 @@ func (lp *lightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.
 }
 
 func (lp *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_QueryServer) error {
-	stream.Send(&lp.state)
+
+	stream.Send(&pb.QueryResponse{Payload: lp.state.Payload})
+
+	for blockID := lp.state.PrevID; blockID != ""; {
+		blockFilePath := path.Join(lp.storagePath, blockID)
+		rawBlock, err := ioutil.ReadFile(blockFilePath)
+		if err != nil {
+			return err
+		}
+
+		block := &pb.Lightblock{}
+		err = json.Unmarshal(rawBlock, block)
+		if err != nil {
+			return err
+		}
+
+		stream.Send(&pb.QueryResponse{Payload: block.Payload})
+		blockID = block.PrevID
+	}
 	return nil
 }
 

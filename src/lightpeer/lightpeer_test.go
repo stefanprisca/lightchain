@@ -23,13 +23,13 @@ func TestPersist(t *testing.T) {
 	}
 }
 
-type mockBlockStream struct {
+type mockQueryStream struct {
 	grpc.ServerStream
-	blocks []*pb.Lightblock
+	responses []*pb.QueryResponse
 }
 
-func (x *mockBlockStream) Send(m *pb.Lightblock) error {
-	x.blocks = append(x.blocks, m)
+func (x *mockQueryStream) Send(m *pb.QueryResponse) error {
+	x.responses = append(x.responses, m)
 	return nil
 }
 
@@ -48,16 +48,57 @@ func TestPersistSavesState(t *testing.T) {
 		t.Fail()
 	}
 
-	blockStream := mockBlockStream{nil, []*pb.Lightblock{}}
-	lp.Query(&pb.EmptyQueryRequest{}, &blockStream)
+	queryStream := mockQueryStream{nil, []*pb.QueryResponse{}}
+	lp.Query(&pb.EmptyQueryRequest{}, &queryStream)
 
-	if len(blockStream.blocks) == 0 {
-		t.Fatalf("No blocks read after persisting one")
+	if len(queryStream.responses) == 0 {
+		t.Fatalf("No responses read after persisting one")
 	}
 
-	firstBlock := blockStream.blocks[0]
-	actualMessage := string(firstBlock.Payload)
+	rsp := queryStream.responses[0]
+	actualMessage := string(rsp.Payload)
 	if message != actualMessage {
 		t.Fatalf("got the wrong message back")
+	}
+}
+
+func TestPersistSavesStateChain(t *testing.T) {
+	lp := &lightpeer{
+		storagePath: "./testdata",
+	}
+	ctxt := context.Background()
+
+	messages := []string{
+		"Hello", "from", "the", "test", "side!",
+	}
+
+	for _, msg := range messages {
+		persistReq := &pb.PersistRequest{
+			Payload: []byte(msg),
+		}
+		_, err := lp.Persist(ctxt, persistReq)
+		if err != nil {
+			t.Fail()
+		}
+	}
+
+	queryStream := mockQueryStream{nil, []*pb.QueryResponse{}}
+	lp.Query(&pb.EmptyQueryRequest{}, &queryStream)
+
+	expectedLength := len(messages)
+	if len(queryStream.responses) != expectedLength {
+		t.Fatalf("not all messages retrived after persisting")
+	}
+
+	for i := 0; i < expectedLength; i++ {
+		expectedMsg := messages[i]
+		rsp := queryStream.responses[expectedLength-i-1]
+
+		actualMsg := string(rsp.Payload)
+		t.Log(actualMsg)
+		if expectedMsg != actualMsg {
+			t.Fatalf("got the wrong message back")
+		}
+
 	}
 }
