@@ -3,3 +3,5 @@ go.sum
 .vscode/tasks.json
 
 **/testdata/*
+
+bin/*

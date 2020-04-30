@@ -49,8 +49,10 @@ func (lp *lightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.
 }
 
 func (lp *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_QueryServer) error {
+	log.Printf("received query request\n")
 
 	stream.Send(&pb.QueryResponse{Payload: lp.state.Payload})
+	log.Printf("responded with block %v \n", lp.state)
 
 	for blockID := lp.state.PrevID; blockID != ""; {
 		blockFilePath := path.Join(lp.storagePath, blockID)
@@ -66,6 +68,7 @@ func (lp *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_Query
 		}
 
 		stream.Send(&pb.QueryResponse{Payload: block.Payload})
+		log.Printf("responded with block %v \n", block)
 		blockID = block.PrevID
 	}
 	return nil
