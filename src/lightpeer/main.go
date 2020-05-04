@@ -20,20 +20,58 @@ import (
 	"log"
 	"net"
 
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
+	"go.opentelemetry.io/otel/api/global"
+	"go.opentelemetry.io/otel/exporters/trace/stdout"
+	"go.opentelemetry.io/otel/plugin/grpctrace"
 	"google.golang.org/grpc"
 )
 
+func initOtel() {
+	exporter, err := stdout.NewExporter(stdout.Options{PrettyPrint: true})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tp, err := sdktrace.NewProvider(
+		sdktrace.WithConfig(sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
+		sdktrace.WithSyncer(exporter),
+	)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	global.SetTraceProvider(tp)
+}
+
 func main() {
+	var verbose = flag.Bool("v", false, "runs verbose - gathering traces with otel")
 	flag.Parse()
+
+	if *verbose {
+		initOtel()
+	}
+
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9081))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	grpcServer := grpc.NewServer()
+
+	tr := global.Tracer("lightpeer")
+
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(grpctrace.UnaryServerInterceptor(tr)),
+		grpc.StreamInterceptor(grpctrace.StreamServerInterceptor(tr)),
+	)
 	pb.RegisterLightpeerServer(grpcServer, &lightpeer{
+		tr:          tr,
 		storagePath: "testdata",
 	})
 
-	grpcServer.Serve(lis)
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
 }

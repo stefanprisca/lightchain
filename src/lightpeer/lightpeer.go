@@ -19,15 +19,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"path"
 
 	"github.com/google/uuid"
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
+
+	"go.opentelemetry.io/otel/api/trace"
 )
 
 type lightpeer struct {
 	pb.LightpeerServer
+
+	tr trace.Tracer
 
 	storagePath string
 	state       pb.Lightblock
@@ -35,7 +38,11 @@ type lightpeer struct {
 
 // Persist creates a new state on the chain, and notifies the network about the new state
 func (lp *lightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.PersistResponse, error) {
-	log.Printf("got new persist request %v \n", *tReq)
+	ctxt, span := lp.tr.Start(ctx, "persist")
+	defer span.End()
+
+	//log.Printf("got new persist request %v \n", *tReq)
+	span.AddEvent(ctxt, fmt.Sprintf("got new persist request %v ", *tReq))
 
 	lightBlock := &pb.Lightblock{
 		ID:      uuid.New().String(),
@@ -46,7 +53,9 @@ func (lp *lightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.
 	}
 	lp.state = *lightBlock
 
-	log.Printf("processing new block %v \n", *lightBlock)
+	// log.Printf("processing new block %v \n", *lightBlock)
+
+	span.AddEvent(ctxt, fmt.Sprintf("processing new block %v \n", *lightBlock))
 
 	out, err := json.Marshal(lightBlock)
 	if err != nil {
@@ -63,10 +72,14 @@ func (lp *lightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.
 }
 
 func (lp *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_QueryServer) error {
-	log.Printf("received query request\n")
+
+	ctxt, span := lp.tr.Start(stream.Context(), "persist")
+	defer span.End()
+
+	span.AddEvent(ctxt, fmt.Sprintf("received query request\n"))
 
 	stream.Send(&pb.QueryResponse{Payload: lp.state.Payload})
-	log.Printf("responded with block %v \n", lp.state)
+	span.AddEvent(ctxt, fmt.Sprintf("responded with block %v \n", lp.state))
 
 	for blockID := lp.state.PrevID; blockID != ""; {
 		blockFilePath := path.Join(lp.storagePath, blockID)
@@ -82,7 +95,7 @@ func (lp *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_Query
 		}
 
 		stream.Send(&pb.QueryResponse{Payload: block.Payload})
-		log.Printf("responded with block %v \n", block)
+		span.AddEvent(ctxt, fmt.Sprintf("responded with block %v \n", block))
 		blockID = block.PrevID
 	}
 	return nil
