@@ -16,20 +16,54 @@ package main
 
 import (
 	"context"
+	"flag"
 	"io"
 	"log"
+
+	"go.opentelemetry.io/otel/api/global"
+	"go.opentelemetry.io/otel/exporters/trace/stdout"
+	"go.opentelemetry.io/otel/plugin/grpctrace"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
 	"google.golang.org/grpc"
 )
 
-func main() {
-	serverAddr := "localhost:9081"
-	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
+func initOtel() {
+	exporter, err := stdout.NewExporter(stdout.Options{PrettyPrint: true})
 	if err != nil {
-		log.Fatalf("Could not connect to server at %s, %v", serverAddr, err)
+		log.Fatal(err)
 	}
-	defer conn.Close()
+
+	tp, err := sdktrace.NewProvider(
+		sdktrace.WithConfig(sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
+		sdktrace.WithSyncer(exporter),
+	)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	global.SetTraceProvider(tp)
+}
+
+func main() {
+	var verbose = flag.Bool("v", false, "runs verbose - gathering traces with otel")
+	var lpAddress = flag.String("lpAddress", ":9081", "the address for the peer to connect to")
+	flag.Parse()
+
+	if *verbose {
+		initOtel()
+	}
+
+	var conn *grpc.ClientConn
+	conn, err := grpc.Dial(*lpAddress, grpc.WithInsecure(),
+		grpc.WithUnaryInterceptor(grpctrace.UnaryClientInterceptor(global.Tracer(""))))
+
+	if err != nil {
+		log.Fatalf("did not connect: %s", err)
+	}
+	defer func() { _ = conn.Close() }()
 
 	client := pb.NewLightpeerClient(conn)
 
@@ -45,10 +79,12 @@ func main() {
 }
 
 func persistMessages(client pb.LightpeerClient) error {
+
+	ctxt := context.Background()
 	messages := []string{
 		"Hello", "from", "the", "test", "side!",
 	}
-	ctxt := context.Background()
+
 	for _, msg := range messages {
 		persistReq := &pb.PersistRequest{
 			Payload: []byte(msg),
