@@ -49,6 +49,7 @@ func initOtel() {
 
 func main() {
 	var verbose = flag.Bool("v", false, "runs verbose - gathering traces with otel")
+	var blockRepo = flag.String("repo", "testdata", "repo for storing the generated blocks")
 	flag.Parse()
 
 	if *verbose {
@@ -68,7 +69,7 @@ func main() {
 	)
 	pb.RegisterLightpeerServer(grpcServer, &lightpeer{
 		tr:          tr,
-		storagePath: "testdata",
+		storagePath: *blockRepo,
 	})
 
 	if err := grpcServer.Serve(lis); err != nil {

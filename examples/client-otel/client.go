@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"io"
 	"log"
 
@@ -47,10 +48,16 @@ func initOtel() {
 }
 
 func main() {
-	initOtel()
+	var verbose = flag.Bool("v", false, "runs verbose - gathering traces with otel")
+	var lpAddress = flag.String("lpAddress", ":9081", "the address for the peer to connect to")
+	flag.Parse()
+
+	if *verbose {
+		initOtel()
+	}
 
 	var conn *grpc.ClientConn
-	conn, err := grpc.Dial(":9081", grpc.WithInsecure(),
+	conn, err := grpc.Dial(*lpAddress, grpc.WithInsecure(),
 		grpc.WithUnaryInterceptor(grpctrace.UnaryClientInterceptor(global.Tracer(""))))
 
 	if err != nil {
