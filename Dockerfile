@@ -22,4 +22,4 @@ COPY --from=build /lightchains/lightpeer .
 
 EXPOSE 9081
 
-CMD ["./lightpeer", "-repo=blockrepo"]
+CMD ["./lightpeer", "-repo=$LP_BLOCKREPO"]

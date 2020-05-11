@@ -9,11 +9,11 @@ COPY . .
 # Download all the dependencies
 RUN go get -d -v ./...
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o bin/client-otel ./examples/client-otel/
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/client-otel ./examples/client/
 
 FROM alpine:latest
 
 WORKDIR /lightpeer-client/
 COPY --from=build /lightpeer-client/bin .
 
-CMD ["sh", "-c", "./client-otel -lpAddress=${LPADDRESS}"]
+CMD ["sh", "-c", "./client-otel -lpAddress=$LP_ADDRESS"]

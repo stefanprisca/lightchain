@@ -1,0 +1,79 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: lightchain
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  namespace: lightchain
+  name: lightpeer-sto
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 20Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lightpeer
+  namespace: lightchain
+  labels:
+    app: lightpeer
+spec:
+  selector:
+    matchLabels:
+      app: lightpeer
+  minReadySeconds: 5
+  progressDeadlineSeconds: 120
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: lightpeer
+    spec:
+      containers:
+      - image: localhost:32000/lightpeer:0.1
+        name: lightpeer
+        resources:
+          limits:
+            cpu: 1
+            memory: 200Mi
+          requests:
+            cpu: 50m
+            memory: 100Mi
+        env:
+          - name: LP_BLOCKREPO
+            value: "/blockRepository"
+        ports:
+        - containerPort: 9081 # gRPC port.
+        volumeMounts:
+        - name: lightpeer-sto
+          mountPath: /blockRepository
+      volumes:
+      - name: lightpeer-sto
+        persistentVolumeClaim:
+          claimName: lightpeer-sto
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lightpeer-service
+  namespace: lightchain
+  labels:
+    app: lightpeer
+spec:
+  ports:
+  - name: grpc
+    port: 9081
+    protocol: TCP
+    targetPort: 9081
+  selector:
+    app: lightpeer
+  type:
+    ClusterIP
