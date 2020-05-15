@@ -19,12 +19,14 @@ import (
 	"testing"
 
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
+	"go.opentelemetry.io/otel/api/global"
 	"google.golang.org/grpc"
 )
 
 func TestPersist(t *testing.T) {
 	lp := &lightpeer{
 		storagePath: "./testdata",
+		tr:          global.Tracer("test"),
 	}
 
 	ctxt := context.Background()
@@ -47,9 +49,14 @@ func (x *mockQueryStream) Send(m *pb.QueryResponse) error {
 	return nil
 }
 
+func (x *mockQueryStream) Context() context.Context {
+	return context.Background()
+}
+
 func TestPersistSavesState(t *testing.T) {
 	lp := &lightpeer{
 		storagePath: "./testdata",
+		tr:          global.Tracer("test"),
 	}
 	ctxt := context.Background()
 
@@ -79,6 +86,7 @@ func TestPersistSavesState(t *testing.T) {
 func TestPersistSavesStateChain(t *testing.T) {
 	lp := &lightpeer{
 		storagePath: "./testdata",
+		tr:          global.Tracer("test"),
 	}
 	ctxt := context.Background()
 

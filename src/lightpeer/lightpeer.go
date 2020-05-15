@@ -73,7 +73,7 @@ func (lp *lightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.
 
 func (lp *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_QueryServer) error {
 
-	ctxt, span := lp.tr.Start(stream.Context(), "persist")
+	ctxt, span := lp.tr.Start(stream.Context(), "query")
 	defer span.End()
 
 	span.AddEvent(ctxt, fmt.Sprintf("received query request\n"))
