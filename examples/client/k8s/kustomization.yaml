@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- client-job.yaml
+images:
+- name: localhost:32000/lightpeer-clientjob
+  newName: localhost:32000/lightpeer-clientjob
+  newTag: 0.3.2-bb6646eedd18942384fa55fc5ebeaf37

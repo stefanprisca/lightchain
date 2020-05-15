@@ -38,14 +38,14 @@ const (
 	OTLPAddress = "localhost:30080"
 )
 
-func initOtel() func() error {
+func initOtel(otlpBackend string) func() error {
 	stdOutExp, err := stdout.NewExporter(stdout.Options{PrettyPrint: true})
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	otlpExp, err := otlp.NewExporter(otlp.WithInsecure(),
-		otlp.WithAddress(OTLPAddress),
+		otlp.WithAddress(otlpBackend),
 		otlp.WithGRPCDialOption(grpc.WithBlock()))
 	if err != nil {
 		log.Fatalf("Failed to create the collector exporter: %v", err)
@@ -76,10 +76,14 @@ func initOtel() func() error {
 func main() {
 	var verbose = flag.Bool("v", false, "runs verbose - gathering traces with otel")
 	var blockRepo = flag.String("repo", "testdata", "repo for storing the generated blocks")
+	var otlpBackend = flag.String("otlp", OTLPAddress, "backend address for otlp traces and metrics")
 	flag.Parse()
 
+	log.Printf("Starting the lightpeer with options: v: %v ; repo: %s ; otlp: %s\n",
+		*verbose, *blockRepo, *otlpBackend)
+
 	if *verbose {
-		otelFinalizer := initOtel()
+		otelFinalizer := initOtel(*otlpBackend)
 		defer otelFinalizer()
 	}
 
@@ -99,6 +103,7 @@ func main() {
 		storagePath: *blockRepo,
 	})
 
+	log.Println("Start serving gRPC connections...")
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}

@@ -39,6 +39,8 @@ spec:
       containers:
       - image: localhost:32000/lightpeer:0.1
         name: lightpeer
+        command: ["./lightpeer"]
+        args: ["-v", "-repo=$(LP_BLOCKREPO)", "-otlp=$(LP_OTLPBACKEND)"]
         resources:
           limits:
             cpu: 1
@@ -49,6 +51,8 @@ spec:
         env:
           - name: LP_BLOCKREPO
             value: "/blockRepository"
+          - name: LP_OTLPBACKEND
+            value: "otel-collector.observability.svc.cluster.local:55680"
         ports:
         - containerPort: 9081 # gRPC port.
         volumeMounts:

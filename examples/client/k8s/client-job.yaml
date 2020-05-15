@@ -2,7 +2,7 @@ apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
   namespace: lightchain
-  name: hello
+  name: clientjob
 spec:
   schedule: "*/1 * * * *"
   jobTemplate:
@@ -10,8 +10,10 @@ spec:
       template:
         spec:
           containers:
-          - name: lightpeer-client
-            image: localhost:32000/lightpeer-client:0.3.1
+          - name: lightpeer-clientjob
+            image: localhost:32000/lightpeer-clientjob:0.3.1
+            command: ["sh"]
+            args: ["-c", "./client-otel -lpAddress=$(LP_ADDRESS)"]
             env:
             - name: LP_ADDRESS
               value: "lightpeer-service.lightchain.svc.cluster.local:9081"

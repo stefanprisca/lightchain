@@ -1,4 +1,4 @@
-FROM golang:1.14.2-alpine3.11 as build
+FROM golang:1.14.2 as build
 
 # Set the Current Working Directory inside the container
 WORKDIR /lightpeer-client
