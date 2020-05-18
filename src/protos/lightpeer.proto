@@ -19,10 +19,17 @@ option go_package = "api/lightpeer";
 import "google/protobuf/timestamp.proto";
 
 message Lightblock {
+
+    enum BlockType {
+        NETWORK = 0;
+        CLIENT =  1;
+    }
+
     string ID  = 1;
     bytes Payload = 2;
     string PrevID = 3;
 
+    BlockType Type = 9;
     google.protobuf.Timestamp last_updated = 10;
 }
 
@@ -35,11 +42,10 @@ service Lightpeer {
 
 message ConnectRequest {
     PeerInfo Peer = 1;
-    string Password = 2;
 }
 
 message ConnectResponse {
-    repeated PeerInfo Peers = 1;
+    repeated Lightblock ChainBlocks = 1;
 }
 
 message PeerInfo {
