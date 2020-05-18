@@ -102,8 +102,8 @@ func (lp *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_Query
 }
 
 // Connect accepts connection from other peers.
-func (lp *lightpeer) Connect(ctx context.Context, cReq *pb.ConnectRequest) (*pb.ConnectResponse, error) {
-	return &pb.ConnectResponse{}, nil
+func (lp *lightpeer) Connect(cReq *pb.ConnectRequest, stream pb.Lightpeer_ConnectServer) error {
+	return nil
 }
 
 func (lp *lightpeer) NotifyNewBlock(ctx context.Context, nbReq *pb.NewBlockRequest) (*pb.NewBlockResponse, error) {

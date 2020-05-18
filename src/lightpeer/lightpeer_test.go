@@ -54,19 +54,12 @@ func (x *mockQueryStream) Context() context.Context {
 }
 
 func TestPersistSavesState(t *testing.T) {
-	lp := &lightpeer{
-		storagePath: "./testdata",
-		tr:          global.Tracer("test"),
+	messages := []string{
+		"Hello",
 	}
-	ctxt := context.Background()
-
-	message := "Hello from the test side!"
-	persistReq := &pb.PersistRequest{
-		Payload: []byte(message),
-	}
-	_, err := lp.Persist(ctxt, persistReq)
+	lp, err := initPeerFromBlocks(messages)
 	if err != nil {
-		t.Fail()
+		t.Fatal(err)
 	}
 
 	queryStream := mockQueryStream{nil, []*pb.QueryResponse{}}
@@ -78,30 +71,18 @@ func TestPersistSavesState(t *testing.T) {
 
 	rsp := queryStream.responses[0]
 	actualMessage := string(rsp.Payload)
-	if message != actualMessage {
+	if messages[0] != actualMessage {
 		t.Fatalf("got the wrong message back")
 	}
 }
 
 func TestPersistSavesStateChain(t *testing.T) {
-	lp := &lightpeer{
-		storagePath: "./testdata",
-		tr:          global.Tracer("test"),
-	}
-	ctxt := context.Background()
-
 	messages := []string{
 		"Hello", "from", "the", "test", "side!",
 	}
-
-	for _, msg := range messages {
-		persistReq := &pb.PersistRequest{
-			Payload: []byte(msg),
-		}
-		_, err := lp.Persist(ctxt, persistReq)
-		if err != nil {
-			t.Fail()
-		}
+	lp, err := initPeerFromBlocks(messages)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	queryStream := mockQueryStream{nil, []*pb.QueryResponse{}}
@@ -117,10 +98,82 @@ func TestPersistSavesStateChain(t *testing.T) {
 		rsp := queryStream.responses[expectedLength-i-1]
 
 		actualMsg := string(rsp.Payload)
-		t.Log(actualMsg)
 		if expectedMsg != actualMsg {
 			t.Fatalf("got the wrong message back")
 		}
 
 	}
+}
+
+type mockLBStream struct {
+	grpc.ServerStream
+	responses []*pb.Lightblock
+}
+
+func (x *mockLBStream) Send(m *pb.Lightblock) error {
+	x.responses = append(x.responses, m)
+	return nil
+}
+
+func (x *mockLBStream) Context() context.Context {
+	return context.Background()
+}
+
+func TestConnectReturnsExistingBlocks(t *testing.T) {
+
+	messages := []string{
+		"Hello", "from", "the", "test", "side!",
+	}
+
+	lp, err := initPeerFromBlocks(messages)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stream := mockLBStream{nil, []*pb.Lightblock{}}
+	lp.Connect(&pb.ConnectRequest{}, &stream)
+
+	expectedLength := len(messages)
+	if len(stream.responses) != expectedLength {
+		t.Fatalf("not all messages returned during connect")
+	}
+}
+
+func TestConnectReturnsNetworkTopology(t *testing.T) {
+	lp, err := initPeerFromBlocks([]string{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stream := mockLBStream{nil, []*pb.Lightblock{}}
+	lp.Connect(&pb.ConnectRequest{}, &stream)
+
+	expectedLength := 1
+	if len(stream.responses) != expectedLength {
+		t.Fatalf("connect did not return any messages")
+	}
+
+	netTop := stream.responses[0]
+	if netTop.Type != pb.Lightblock_NETWORK {
+		t.Fatalf("connect did not return network topology")
+	}
+}
+
+func initPeerFromBlocks(messages []string) (*lightpeer, error) {
+	lp := &lightpeer{
+		storagePath: "./testdata",
+		tr:          global.Tracer("test"),
+	}
+	ctxt := context.Background()
+
+	for _, msg := range messages {
+		persistReq := &pb.PersistRequest{
+			Payload: []byte(msg),
+		}
+		_, err := lp.Persist(ctxt, persistReq)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return lp, nil
 }
