@@ -28,9 +28,6 @@ spec:
   selector:
     matchLabels:
       app: lightpeer
-  minReadySeconds: 5
-  progressDeadlineSeconds: 120
-  replicas: 1
   template:
     metadata:
       labels:

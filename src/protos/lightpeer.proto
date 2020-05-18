@@ -34,11 +34,17 @@ service Lightpeer {
 }
 
 message ConnectRequest {
-    string IP  = 1;
+    PeerInfo Peer = 1;
+    string Password = 2;
 }
 
 message ConnectResponse {
-    string Response = 1;
+    repeated PeerInfo Peers = 1;
+}
+
+message PeerInfo {
+    string IP = 1;
+    string Name = 2;
 }
 
 message PersistRequest {
