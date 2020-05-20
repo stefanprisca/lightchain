@@ -47,6 +47,7 @@ func (lp *lightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.
 	lightBlock := &pb.Lightblock{
 		ID:      uuid.New().String(),
 		Payload: tReq.Payload,
+		Type:    pb.Lightblock_CLIENT,
 	}
 	if lp.state.ID != "" {
 		lightBlock.PrevID = lp.state.ID
@@ -76,34 +77,79 @@ func (lp *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_Query
 	ctxt, span := lp.tr.Start(stream.Context(), "query")
 	defer span.End()
 
-	span.AddEvent(ctxt, fmt.Sprintf("received query request\n"))
-
-	stream.Send(&pb.QueryResponse{Payload: lp.state.Payload})
-	span.AddEvent(ctxt, fmt.Sprintf("responded with block %v \n", lp.state))
-
-	for blockID := lp.state.PrevID; blockID != ""; {
-		blockFilePath := path.Join(lp.storagePath, blockID)
-		rawBlock, err := ioutil.ReadFile(blockFilePath)
-		if err != nil {
-			return err
+	blockChan := lp.readBlocks(ctxt)
+	for blockResp := range blockChan {
+		if blockResp.err != nil {
+			span.AddEvent(ctxt, fmt.Sprintf("failed to process connect \n"))
+			return blockResp.err
 		}
 
-		block := &pb.Lightblock{}
-		err = json.Unmarshal(rawBlock, block)
-		if err != nil {
-			return err
-		}
-
-		stream.Send(&pb.QueryResponse{Payload: block.Payload})
-		span.AddEvent(ctxt, fmt.Sprintf("responded with block %v \n", block))
-		blockID = block.PrevID
+		stream.Send(&pb.QueryResponse{Payload: blockResp.block.Payload})
 	}
+
+	span.AddEvent(ctxt, fmt.Sprintf("finished sending blocks \n"))
+
 	return nil
 }
 
 // Connect accepts connection from other peers.
 func (lp *lightpeer) Connect(cReq *pb.ConnectRequest, stream pb.Lightpeer_ConnectServer) error {
+
+	ctxt, span := lp.tr.Start(stream.Context(), "connect")
+	defer span.End()
+
+	blockChan := lp.readBlocks(ctxt)
+	for blockResp := range blockChan {
+		if blockResp.err != nil {
+			span.AddEvent(ctxt, fmt.Sprintf("failed to process connect \n"))
+			return blockResp.err
+		}
+
+		lb := &pb.Lightblock{}
+		*lb = blockResp.block
+
+		stream.Send(lb)
+	}
+
 	return nil
+}
+
+type blockResponse struct {
+	block pb.Lightblock
+	err   error
+}
+
+func (lp *lightpeer) readBlocks(outterContext context.Context) <-chan blockResponse {
+	outchan := make(chan blockResponse, 1)
+	go func() {
+		ctxt, span := lp.tr.Start(outterContext, "reading blocks")
+		defer span.End()
+		defer close(outchan)
+
+		outchan <- blockResponse{lp.state, nil}
+		for blockID := lp.state.PrevID; blockID != ""; {
+			blockFilePath := path.Join(lp.storagePath, blockID)
+			rawBlock, err := ioutil.ReadFile(blockFilePath)
+			if err != nil {
+				span.AddEvent(ctxt, fmt.Sprintf("failed to read block %v \n", err))
+				outchan <- blockResponse{pb.Lightblock{}, err}
+				return
+			}
+
+			block := &pb.Lightblock{}
+			err = json.Unmarshal(rawBlock, block)
+			if err != nil {
+				span.AddEvent(ctxt, fmt.Sprintf("failed to read block %v \n", err))
+				outchan <- blockResponse{pb.Lightblock{}, err}
+				return
+			}
+			outchan <- blockResponse{*block, nil}
+			blockID = block.PrevID
+		}
+		span.AddEvent(ctxt, fmt.Sprintf("finished reading all the blocks \n"))
+	}()
+
+	return outchan
 }
 
 func (lp *lightpeer) NotifyNewBlock(ctx context.Context, nbReq *pb.NewBlockRequest) (*pb.NewBlockResponse, error) {

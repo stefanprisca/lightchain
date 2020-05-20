@@ -16,10 +16,13 @@ package main
 
 import (
 	"context"
+	"log"
 	"testing"
 
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
 	"go.opentelemetry.io/otel/api/global"
+	"go.opentelemetry.io/otel/exporters/trace/stdout"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"google.golang.org/grpc"
 )
 
@@ -57,7 +60,7 @@ func TestPersistSavesState(t *testing.T) {
 	messages := []string{
 		"Hello",
 	}
-	lp, err := initPeerFromBlocks(messages)
+	lp, err := initPeerFromBlocks(messages, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +83,7 @@ func TestPersistSavesStateChain(t *testing.T) {
 	messages := []string{
 		"Hello", "from", "the", "test", "side!",
 	}
-	lp, err := initPeerFromBlocks(messages)
+	lp, err := initPeerFromBlocks(messages, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +128,7 @@ func TestConnectReturnsExistingBlocks(t *testing.T) {
 		"Hello", "from", "the", "test", "side!",
 	}
 
-	lp, err := initPeerFromBlocks(messages)
+	lp, err := initPeerFromBlocks(messages, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,13 +137,25 @@ func TestConnectReturnsExistingBlocks(t *testing.T) {
 	lp.Connect(&pb.ConnectRequest{}, &stream)
 
 	expectedLength := len(messages)
-	if len(stream.responses) != expectedLength {
-		t.Fatalf("not all messages returned during connect")
+	actualLength := len(stream.responses)
+	if actualLength != expectedLength {
+		t.Fatalf("not all messages returned during connect: expected %v, got %v",
+			expectedLength, actualLength)
+	}
+	for i := 0; i < expectedLength; i++ {
+		expectedMsg := messages[i]
+		rsp := stream.responses[expectedLength-i-1]
+
+		actualMsg := string(rsp.Payload)
+		if expectedMsg != actualMsg {
+			t.Fatalf("got the wrong message back: expected %s, got %s",
+				expectedMsg, actualMsg)
+		}
 	}
 }
 
 func TestConnectReturnsNetworkTopology(t *testing.T) {
-	lp, err := initPeerFromBlocks([]string{})
+	lp, err := initPeerFromBlocks([]string{}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +174,26 @@ func TestConnectReturnsNetworkTopology(t *testing.T) {
 	}
 }
 
-func initPeerFromBlocks(messages []string) (*lightpeer, error) {
+func initTestOtel() {
+	stdOutExp, err := stdout.NewExporter(stdout.Options{PrettyPrint: true})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tp, err := sdktrace.NewProvider(
+		sdktrace.WithConfig(sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
+		sdktrace.WithSyncer(stdOutExp))
+	if err != nil {
+		log.Fatalf("error creating trace provider: %v\n", err)
+	}
+
+	global.SetTraceProvider(tp)
+}
+
+func initPeerFromBlocks(messages []string, verbose bool) (*lightpeer, error) {
+	if verbose {
+		initTestOtel()
+	}
 	lp := &lightpeer{
 		storagePath: "./testdata",
 		tr:          global.Tracer("test"),
