@@ -29,11 +29,10 @@ import (
 
 type lightpeer struct {
 	pb.LightpeerServer
-
-	tr trace.Tracer
-
+	tr          trace.Tracer
 	storagePath string
 	state       pb.Lightblock
+	network     LightNetwork
 }
 
 // Persist creates a new state on the chain, and notifies the network about the new state
@@ -44,32 +43,14 @@ func (lp *lightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.
 	//log.Printf("got new persist request %v \n", *tReq)
 	span.AddEvent(ctxt, fmt.Sprintf("got new persist request %v ", *tReq))
 
-	lightBlock := &pb.Lightblock{
+	lightBlock := pb.Lightblock{
 		ID:      uuid.New().String(),
 		Payload: tReq.Payload,
 		Type:    pb.Lightblock_CLIENT,
 	}
-	if lp.state.ID != "" {
-		lightBlock.PrevID = lp.state.ID
-	}
-	lp.state = *lightBlock
 
-	// log.Printf("processing new block %v \n", *lightBlock)
-
-	span.AddEvent(ctxt, fmt.Sprintf("processing new block %v \n", *lightBlock))
-
-	out, err := json.Marshal(lightBlock)
-	if err != nil {
-		return &pb.PersistResponse{}, fmt.Errorf("failed to encode lightblock: %v", err)
-	}
-	outPath := path.Join(lp.storagePath, lightBlock.ID)
-
-	if err := ioutil.WriteFile(outPath, out, 0644); err != nil {
-		return &pb.PersistResponse{}, fmt.Errorf("failed to write lightblock: %v", err)
-	}
-	return &pb.PersistResponse{
-		Response: outPath,
-	}, nil
+	err := lp.writeBlock(lightBlock)
+	return &pb.PersistResponse{}, err
 }
 
 func (lp *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_QueryServer) error {
@@ -77,10 +58,10 @@ func (lp *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_Query
 	ctxt, span := lp.tr.Start(stream.Context(), "query")
 	defer span.End()
 
-	blockChan := lp.readBlocks(ctxt)
+	blockChan := lp.readBlocks()
 	for blockResp := range blockChan {
 		if blockResp.err != nil {
-			span.AddEvent(ctxt, fmt.Sprintf("failed to process connect \n"))
+			span.AddEvent(ctxt, fmt.Sprintf("failed to read block %v \n", blockResp.err))
 			return blockResp.err
 		}
 
@@ -98,10 +79,23 @@ func (lp *lightpeer) Connect(cReq *pb.ConnectRequest, stream pb.Lightpeer_Connec
 	ctxt, span := lp.tr.Start(stream.Context(), "connect")
 	defer span.End()
 
-	blockChan := lp.readBlocks(ctxt)
+	lp.network.Peers = append(lp.network.Peers, *cReq.Peer)
+
+	rawNetwork, err := json.Marshal(lp.network)
+	if err != nil {
+		return fmt.Errorf("could not marshal new network: %v", err)
+	}
+
+	lp.writeBlock(pb.Lightblock{
+		ID:      uuid.New().String(),
+		Payload: rawNetwork,
+		Type:    pb.Lightblock_NETWORK,
+	})
+
+	blockChan := lp.readBlocks()
 	for blockResp := range blockChan {
 		if blockResp.err != nil {
-			span.AddEvent(ctxt, fmt.Sprintf("failed to process connect \n"))
+			span.AddEvent(ctxt, fmt.Sprintf("failed to read block: %v \n", blockResp.err))
 			return blockResp.err
 		}
 
@@ -119,11 +113,9 @@ type blockResponse struct {
 	err   error
 }
 
-func (lp *lightpeer) readBlocks(outterContext context.Context) <-chan blockResponse {
+func (lp *lightpeer) readBlocks() <-chan blockResponse {
 	outchan := make(chan blockResponse, 1)
 	go func() {
-		ctxt, span := lp.tr.Start(outterContext, "reading blocks")
-		defer span.End()
 		defer close(outchan)
 
 		outchan <- blockResponse{lp.state, nil}
@@ -131,7 +123,6 @@ func (lp *lightpeer) readBlocks(outterContext context.Context) <-chan blockRespo
 			blockFilePath := path.Join(lp.storagePath, blockID)
 			rawBlock, err := ioutil.ReadFile(blockFilePath)
 			if err != nil {
-				span.AddEvent(ctxt, fmt.Sprintf("failed to read block %v \n", err))
 				outchan <- blockResponse{pb.Lightblock{}, err}
 				return
 			}
@@ -139,17 +130,35 @@ func (lp *lightpeer) readBlocks(outterContext context.Context) <-chan blockRespo
 			block := &pb.Lightblock{}
 			err = json.Unmarshal(rawBlock, block)
 			if err != nil {
-				span.AddEvent(ctxt, fmt.Sprintf("failed to read block %v \n", err))
 				outchan <- blockResponse{pb.Lightblock{}, err}
 				return
 			}
 			outchan <- blockResponse{*block, nil}
 			blockID = block.PrevID
 		}
-		span.AddEvent(ctxt, fmt.Sprintf("finished reading all the blocks \n"))
 	}()
 
 	return outchan
+}
+
+func (lp *lightpeer) writeBlock(block pb.Lightblock) error {
+
+	if lp.state.ID != "" {
+		block.PrevID = lp.state.ID
+	}
+	lp.state = block
+
+	out, err := json.Marshal(block)
+	if err != nil {
+		return fmt.Errorf("failed to encode block: %v", err)
+	}
+	outPath := path.Join(lp.storagePath, block.ID)
+
+	if err := ioutil.WriteFile(outPath, out, 0644); err != nil {
+		fmt.Errorf("failed to write block: %v", err)
+	}
+
+	return nil
 }
 
 func (lp *lightpeer) NotifyNewBlock(ctx context.Context, nbReq *pb.NewBlockRequest) (*pb.NewBlockResponse, error) {

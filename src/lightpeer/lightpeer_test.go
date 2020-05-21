@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"testing"
 
@@ -60,7 +61,7 @@ func TestPersistSavesState(t *testing.T) {
 	messages := []string{
 		"Hello",
 	}
-	lp, err := initPeerFromBlocks(messages, false)
+	lp, err := initPeerFromBlocks("bar", messages, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +84,7 @@ func TestPersistSavesStateChain(t *testing.T) {
 	messages := []string{
 		"Hello", "from", "the", "test", "side!",
 	}
-	lp, err := initPeerFromBlocks(messages, false)
+	lp, err := initPeerFromBlocks("bar", messages, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,23 +129,25 @@ func TestConnectReturnsExistingBlocks(t *testing.T) {
 		"Hello", "from", "the", "test", "side!",
 	}
 
-	lp, err := initPeerFromBlocks(messages, false)
+	lp, err := initPeerFromBlocks("bar", messages, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	stream := mockLBStream{nil, []*pb.Lightblock{}}
-	lp.Connect(&pb.ConnectRequest{}, &stream)
+	lp.Connect(&pb.ConnectRequest{
+		Peer: &pb.PeerInfo{Name: "foo"},
+	}, &stream)
 
 	expectedLength := len(messages)
-	actualLength := len(stream.responses)
+	actualLength := len(stream.responses) - 1
 	if actualLength != expectedLength {
 		t.Fatalf("not all messages returned during connect: expected %v, got %v",
 			expectedLength, actualLength)
 	}
 	for i := 0; i < expectedLength; i++ {
 		expectedMsg := messages[i]
-		rsp := stream.responses[expectedLength-i-1]
+		rsp := stream.responses[expectedLength-i]
 
 		actualMsg := string(rsp.Payload)
 		if expectedMsg != actualMsg {
@@ -155,22 +158,43 @@ func TestConnectReturnsExistingBlocks(t *testing.T) {
 }
 
 func TestConnectReturnsNetworkTopology(t *testing.T) {
-	lp, err := initPeerFromBlocks([]string{}, false)
+
+	networkPeerNames := []string{"bar", "foo"}
+
+	lp, err := initPeerFromBlocks(networkPeerNames[0], []string{}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	stream := mockLBStream{nil, []*pb.Lightblock{}}
-	lp.Connect(&pb.ConnectRequest{}, &stream)
+	lp.Connect(&pb.ConnectRequest{
+		Peer: &pb.PeerInfo{Name: networkPeerNames[1]},
+	}, &stream)
 
 	expectedLength := 1
 	if len(stream.responses) != expectedLength {
 		t.Fatalf("connect did not return any messages")
 	}
 
-	netTop := stream.responses[0]
-	if netTop.Type != pb.Lightblock_NETWORK {
+	networkBlock := stream.responses[0]
+	if networkBlock.Type != pb.Lightblock_NETWORK {
 		t.Fatalf("connect did not return network topology")
+	}
+
+	network := &LightNetwork{}
+	err = json.Unmarshal(networkBlock.Payload, network)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < len(network.Peers); i++ {
+		expectedPeerName := networkPeerNames[i]
+		actualPeerName := network.Peers[i].Name
+		if expectedPeerName != actualPeerName {
+			t.Fatalf("wrong peer found in network: expected %s, actual %s",
+				expectedPeerName, actualPeerName)
+		}
 	}
 }
 
@@ -190,13 +214,16 @@ func initTestOtel() {
 	global.SetTraceProvider(tp)
 }
 
-func initPeerFromBlocks(messages []string, verbose bool) (*lightpeer, error) {
+func initPeerFromBlocks(name string, messages []string, verbose bool) (*lightpeer, error) {
 	if verbose {
 		initTestOtel()
 	}
 	lp := &lightpeer{
 		storagePath: "./testdata",
 		tr:          global.Tracer("test"),
+		network: LightNetwork{[]pb.PeerInfo{
+			pb.PeerInfo{Name: name},
+		}},
 	}
 	ctxt := context.Background()
 
