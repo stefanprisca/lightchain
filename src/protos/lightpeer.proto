@@ -54,7 +54,7 @@ message ConnectRequest {
 }
 
 message PeerInfo {
-    string IP = 1;
+    string Address = 1;
     string Name = 2;
 }
 

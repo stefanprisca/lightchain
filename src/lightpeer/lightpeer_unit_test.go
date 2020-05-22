@@ -181,16 +181,16 @@ func TestConnectReturnsNetworkTopology(t *testing.T) {
 		t.Fatalf("connect did not return network topology")
 	}
 
-	network := &LightNetwork{}
-	err = json.Unmarshal(networkBlock.Payload, network)
+	network := []pb.PeerInfo{}
+	err = json.Unmarshal(networkBlock.Payload, &network)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for i := 0; i < len(network.Peers); i++ {
+	for i := 0; i < len(network); i++ {
 		expectedPeerName := networkPeerNames[i]
-		actualPeerName := network.Peers[i].Name
+		actualPeerName := network[i].Name
 		if expectedPeerName != actualPeerName {
 			t.Fatalf("wrong peer found in network: expected %s, actual %s",
 				expectedPeerName, actualPeerName)
@@ -221,9 +221,9 @@ func initPeerFromBlocks(name string, messages []string, verbose bool) (*lightpee
 	lp := &lightpeer{
 		storagePath: "./testdata",
 		tr:          global.Tracer("test"),
-		network: LightNetwork{[]pb.PeerInfo{
+		network: []pb.PeerInfo{
 			pb.PeerInfo{Name: name},
-		}},
+		},
 	}
 	ctxt := context.Background()
 
