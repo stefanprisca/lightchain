@@ -34,10 +34,19 @@ message Lightblock {
 }
 
 service Lightpeer {
-    rpc Connect (ConnectRequest) returns (stream Lightblock) {};
+    rpc JoinNetwork (JoinRequest) returns (JoinResponse) {};
+    rpc ConnectNewPeer (ConnectRequest) returns (stream Lightblock) {};
     rpc Persist (PersistRequest) returns (PersistResponse) {};
     rpc Query   (EmptyQueryRequest) returns (stream QueryResponse) {};
     rpc NotifyNewBlock (NewBlockRequest) returns (NewBlockResponse) {};
+}
+
+message JoinRequest {
+    string Address = 1;
+}
+
+message JoinResponse {
+    string Result = 1;
 }
 
 message ConnectRequest {

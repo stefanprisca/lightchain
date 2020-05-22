@@ -29,7 +29,8 @@ import (
 
 func TestPeerServerPersistsMessages(t *testing.T) {
 
-	peerClient, terminator := startLPServer(8090)
+	address := fmt.Sprintf(":%d", 8090)
+	peerClient, terminator := startLPServer(address)
 	defer terminator()
 	msg := "Hello from the peer client!"
 	persistReq := &pb.PersistRequest{
@@ -60,8 +61,51 @@ func TestPeerServerPersistsMessages(t *testing.T) {
 	}
 }
 
-func startLPServer(port int) (pb.LightpeerClient, func() error) {
-	address := fmt.Sprintf(":%d", port)
+func TestPeersConnect(t *testing.T) {
+	addressA := fmt.Sprintf(":%d", 8090)
+	peerA, terminatorA := startLPServer(addressA)
+	defer terminatorA()
+
+	msg := "Hello from the peer client!"
+	persistReq := &pb.PersistRequest{
+		Payload: []byte(msg),
+	}
+	ctx := context.Background()
+	_, err := peerA.Persist(ctx, persistReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	addressB := fmt.Sprintf(":%d", 8091)
+	peerB, terminatorB := startLPServer(addressB)
+	defer terminatorB()
+
+	_, err = peerB.JoinNetwork(ctx, &pb.JoinRequest{Address: addressA})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	queryClient, err := peerB.Query(ctx, &pb.EmptyQueryRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rsp, err := queryClient.Recv()
+	if err == io.EOF {
+		t.Fatalf("unexpected end of query stream")
+	}
+	if err != nil {
+		t.Fatalf("%v.Query returned error: %v", peerB, err)
+	}
+
+	actualMessage := string(rsp.Payload)
+	if msg != actualMessage {
+		t.Fatalf("got the wrong message back")
+	}
+}
+
+func startLPServer(address string) (pb.LightpeerClient, func() error) {
+
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)

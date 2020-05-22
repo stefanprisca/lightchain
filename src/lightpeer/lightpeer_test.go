@@ -135,7 +135,7 @@ func TestConnectReturnsExistingBlocks(t *testing.T) {
 	}
 
 	stream := mockLBStream{nil, []*pb.Lightblock{}}
-	lp.Connect(&pb.ConnectRequest{
+	lp.ConnectNewPeer(&pb.ConnectRequest{
 		Peer: &pb.PeerInfo{Name: "foo"},
 	}, &stream)
 
@@ -167,7 +167,7 @@ func TestConnectReturnsNetworkTopology(t *testing.T) {
 	}
 
 	stream := mockLBStream{nil, []*pb.Lightblock{}}
-	lp.Connect(&pb.ConnectRequest{
+	lp.ConnectNewPeer(&pb.ConnectRequest{
 		Peer: &pb.PeerInfo{Name: networkPeerNames[1]},
 	}, &stream)
 

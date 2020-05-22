@@ -73,8 +73,12 @@ func (lp *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_Query
 	return nil
 }
 
+func (lp *lightpeer) JoinNetwork(ctx context.Context, joinReq *pb.JoinRequest) (*pb.JoinResponse, error) {
+	return nil, nil
+}
+
 // Connect accepts connection from other peers.
-func (lp *lightpeer) Connect(cReq *pb.ConnectRequest, stream pb.Lightpeer_ConnectServer) error {
+func (lp *lightpeer) ConnectNewPeer(cReq *pb.ConnectRequest, stream pb.Lightpeer_ConnectNewPeerServer) error {
 
 	ctxt, span := lp.tr.Start(stream.Context(), "connect")
 	defer span.End()
