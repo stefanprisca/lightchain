@@ -20,58 +20,12 @@ import (
 	"log"
 	"net"
 
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"google.golang.org/grpc"
 
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
 	"go.opentelemetry.io/otel/api/global"
-	"go.opentelemetry.io/otel/api/kv"
-	"go.opentelemetry.io/otel/exporters/otlp"
-	"go.opentelemetry.io/otel/exporters/trace/stdout"
 	"go.opentelemetry.io/otel/plugin/grpctrace"
-
-	"github.com/open-telemetry/opentelemetry-collector/translator/conventions"
 )
-
-const (
-	ServiceName = "lightchain"
-	OTLPAddress = "localhost:30080"
-)
-
-func initOtel(otlpBackend string) func() error {
-	stdOutExp, err := stdout.NewExporter(stdout.Options{PrettyPrint: true})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	otlpExp, err := otlp.NewExporter(otlp.WithInsecure(),
-		otlp.WithAddress(otlpBackend),
-		otlp.WithGRPCDialOption(grpc.WithBlock()))
-	if err != nil {
-		log.Fatalf("Failed to create the collector exporter: %v", err)
-	}
-
-	tp, err := sdktrace.NewProvider(
-		sdktrace.WithConfig(sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
-		sdktrace.WithSyncer(stdOutExp),
-		sdktrace.WithResourceAttributes(
-			// the service name used to display traces in Jaeger
-			kv.Key(conventions.AttributeServiceName).String(ServiceName),
-		),
-		sdktrace.WithBatcher(otlpExp, // add following two options to ensure flush
-			sdktrace.WithScheduleDelayMillis(5),
-			sdktrace.WithMaxExportBatchSize(2),
-		),
-	)
-	if err != nil {
-		log.Fatalf("error creating trace provider: %v\n", err)
-	}
-
-	global.SetTraceProvider(tp)
-	return func() error {
-		return otlpExp.Stop()
-	}
-}
 
 func main() {
 	var verbose = flag.Bool("v", false, "runs verbose - gathering traces with otel")
@@ -83,7 +37,7 @@ func main() {
 		*verbose, *blockRepo, *otlpBackend)
 
 	if *verbose {
-		otelFinalizer := initOtel(*otlpBackend)
+		otelFinalizer := initOtel(*otlpBackend, ServiceName)
 		defer otelFinalizer()
 	}
 
