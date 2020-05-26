@@ -38,7 +38,7 @@ service Lightpeer {
     rpc ConnectNewPeer (ConnectRequest) returns (stream Lightblock) {};
     rpc Persist (PersistRequest) returns (PersistResponse) {};
     rpc Query   (EmptyQueryRequest) returns (stream QueryResponse) {};
-    rpc NotifyNewBlock (NewBlockRequest) returns (NewBlockResponse) {};
+    rpc NotifyNewBlock (Lightblock) returns (NewBlockResponse) {};
 }
 
 message JoinRequest {
@@ -71,11 +71,6 @@ message EmptyQueryRequest {}
 
 message QueryResponse {
     bytes Payload = 1;
-}
-
-message NewBlockRequest {
-    string Contents = 1;
-    string UID = 2;
 }
 
 message NewBlockResponse {

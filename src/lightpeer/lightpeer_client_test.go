@@ -52,7 +52,7 @@ func TestConnectUpdatesMessages(t *testing.T) {
 }
 
 func TestConnectUpdatesTopology(t *testing.T) {
-	tn := newTestNetwork(t).withOTLP(OTLPAddress, "TestConnectUpdatesTopology4")
+	tn := newTestNetwork(t) //.withOTLP(OTLPAddress, "TestConnectUpdatesTopology4")
 	defer tn.stop()
 
 	tn.startLPServer(8090).
@@ -62,8 +62,8 @@ func TestConnectUpdatesTopology(t *testing.T) {
 }
 
 // Test fails because peers don't notify new blocks yet
-func _TestThreePeerNetworkUpdatesMessages(t *testing.T) {
-	tn := newTestNetwork(t)
+func TestThreePeerNetworkUpdatesMessages(t *testing.T) {
+	tn := newTestNetwork(t) //.withOTLP(OTLPAddress, "TestThreePeerNetworkUpdatesMessages")
 	defer tn.stop()
 
 	tn.startLPServer(8081).
@@ -71,16 +71,21 @@ func _TestThreePeerNetworkUpdatesMessages(t *testing.T) {
 		startLPServer(8082).
 		connect(8082, 8081).
 		persist(8082, "8082").
-		assertExpectedMessages("8082", "8081").
+		persist(8081, "8081#2").
+		persist(8082, "8082#2").
+		assertExpectedMessages("8082#2", "8081#2", "8082", "8081").
 		startLPServer(8083).
 		connect(8083, 8082).
-		persist(8082, "8083").
-		assertExpectedMessages("8083", "8082", "8081")
+		persist(8083, "8083").
+		persist(8083, "8083#2").
+		persist(8082, "8082#3").
+		persist(8081, "8081#3").
+		assertExpectedMessages("8081#3", "8082#3", "8083#2", "8083", "8082#2", "8081#2", "8082", "8081")
 }
 
 // Test fails because peers don't notify new blocks yet
-func _TestThreePeerNetworkUpdatesTopology(t *testing.T) {
-	tn := newTestNetwork(t)
+func TestThreePeerNetworkUpdatesTopology(t *testing.T) {
+	tn := newTestNetwork(t) //.withOTLP(OTLPAddress, "TestThreePeerNetworkUpdatesTopology")
 	defer tn.stop()
 
 	tn.startLPServer(8081).
@@ -232,6 +237,9 @@ func startLPTestServer(address string) (testClient, error) {
 	}
 
 	grpcServer := grpc.NewServer()
+	// grpc.UnaryInterceptor(grpctrace.UnaryServerInterceptor(global.Tracer(""))),
+	// grpc.StreamInterceptor(grpctrace.StreamServerInterceptor(global.Tracer(""))),
+
 	pb.RegisterLightpeerServer(grpcServer, lp)
 
 	go func() {
@@ -242,6 +250,8 @@ func startLPTestServer(address string) (testClient, error) {
 
 	var conn *grpc.ClientConn
 	conn, err = grpc.Dial(lp.meta.Address, grpc.WithInsecure())
+	// grpc.WithUnaryInterceptor(grpctrace.UnaryClientInterceptor(global.Tracer(""))),
+	// grpc.WithStreamInterceptor(grpctrace.StreamClientInterceptor(global.Tracer(""))))
 	if err != nil {
 		return testClient{}, fmt.Errorf("did not connect: %s", err)
 	}
