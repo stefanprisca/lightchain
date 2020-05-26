@@ -26,7 +26,9 @@ import (
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
 	"google.golang.org/grpc"
 
+	"go.opentelemetry.io/otel/api/global"
 	"go.opentelemetry.io/otel/api/trace"
+	"go.opentelemetry.io/otel/plugin/grpctrace"
 )
 
 type lightpeer struct {
@@ -94,7 +96,12 @@ func (lp *lightpeer) JoinNetwork(ctx context.Context, joinReq *pb.JoinRequest) (
 	joinCtx, span := lp.tr.Start(ctx, fmt.Sprintf("@%s - join %s", lp.meta.Address, joinReq.Address))
 	defer span.End()
 
-	conn, err := grpc.Dial(joinReq.Address, grpc.WithInsecure())
+	conn, err := grpc.Dial(joinReq.Address, grpc.WithInsecure(),
+		grpc.WithUnaryInterceptor(grpctrace.UnaryClientInterceptor(
+			global.Tracer(fmt.Sprintf("client@%s", joinReq.Address)))),
+		grpc.WithStreamInterceptor(grpctrace.StreamClientInterceptor(
+			global.Tracer(fmt.Sprintf("stream-client@%s", joinReq.Address)))))
+
 	if err != nil {
 		err = fmt.Errorf("failed to connect to grpc server: %v", err)
 		span.RecordError(joinCtx, err)
@@ -111,6 +118,7 @@ func (lp *lightpeer) JoinNetwork(ctx context.Context, joinReq *pb.JoinRequest) (
 		span.RecordError(joinCtx, err)
 		return &pb.JoinResponse{}, err
 	}
+
 	networkUpdated := false
 	var state *pb.Lightblock = nil
 	for {
@@ -263,7 +271,11 @@ func (lp *lightpeer) sendNewBlockNotifications(ctx context.Context, block pb.Lig
 			continue
 		}
 
-		conn, err := grpc.Dial(peer.Address, grpc.WithInsecure())
+		conn, err := grpc.Dial(peer.Address, grpc.WithInsecure(),
+			grpc.WithUnaryInterceptor(grpctrace.UnaryClientInterceptor(
+				global.Tracer(fmt.Sprintf("client@%s", peer.Address)))),
+			grpc.WithStreamInterceptor(grpctrace.StreamClientInterceptor(
+				global.Tracer(fmt.Sprintf("stream-client@%s", peer.Address)))))
 		if err != nil {
 			return fmt.Errorf("did not connect: %s", err)
 		}

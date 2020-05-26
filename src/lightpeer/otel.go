@@ -8,7 +8,6 @@ import (
 	"go.opentelemetry.io/otel/api/kv"
 	apitrace "go.opentelemetry.io/otel/api/trace"
 	"go.opentelemetry.io/otel/exporters/otlp"
-	"go.opentelemetry.io/otel/exporters/trace/stdout"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"google.golang.org/grpc"
 )
@@ -19,10 +18,6 @@ const (
 )
 
 func initOtel(otlpBackend, serviceName string) func() error {
-	stdOutExp, err := stdout.NewExporter(stdout.Options{PrettyPrint: true})
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	otlpExp, err := otlp.NewExporter(otlp.WithInsecure(),
 		otlp.WithAddress(otlpBackend),
@@ -33,7 +28,6 @@ func initOtel(otlpBackend, serviceName string) func() error {
 
 	tp, err := sdktrace.NewProvider(
 		sdktrace.WithConfig(sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
-		sdktrace.WithSyncer(stdOutExp),
 		sdktrace.WithResourceAttributes(
 			// the service name used to display traces in Jaeger
 			kv.Key(conventions.AttributeServiceName).String(serviceName),

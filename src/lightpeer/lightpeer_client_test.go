@@ -22,15 +22,18 @@ import (
 	"net"
 	"os"
 	"testing"
+	"time"
 
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
 	"go.opentelemetry.io/otel/api/global"
+	"go.opentelemetry.io/otel/plugin/grpctrace"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 func TestPeerServerPersistsMessages(t *testing.T) {
 	msg := "Hello from the peer client!"
-	tn := newTestNetwork(t)
+	tn := newTestNetwork(t) //.withOTLP(OTLPAddress, "TestPeerServerPersistsMessages")
 	defer tn.stop()
 
 	tn.startLPServer(8090).
@@ -41,7 +44,7 @@ func TestPeerServerPersistsMessages(t *testing.T) {
 func TestConnectUpdatesMessages(t *testing.T) {
 
 	msg := "Hello from the peer client!"
-	tn := newTestNetwork(t)
+	tn := newTestNetwork(t) //.withOTLP(OTLPAddress, "TestConnectUpdatesMessages")
 	defer tn.stop()
 
 	tn.startLPServer(8090).
@@ -52,7 +55,7 @@ func TestConnectUpdatesMessages(t *testing.T) {
 }
 
 func TestConnectUpdatesTopology(t *testing.T) {
-	tn := newTestNetwork(t) //.withOTLP(OTLPAddress, "TestConnectUpdatesTopology4")
+	tn := newTestNetwork(t) //.withOTLP(OTLPAddress, "TestConnectUpdatesTopology")
 	defer tn.stop()
 
 	tn.startLPServer(8090).
@@ -131,14 +134,17 @@ func (tn *testNetwork) startLPServer(port int) *testNetwork {
 }
 
 func (tn *testNetwork) persist(port int, messages ...string) *testNetwork {
-
 	tc := tn.clients[port]
-	ctx := context.Background()
+	ctx := getClientContext(tc)
+	traceID := fmt.Sprintf("persist@client%d", port)
+	persistCtx, span := global.Tracer(traceID).Start(ctx, traceID)
+	defer span.End()
+
 	for _, msg := range messages {
 		persistReq := &pb.PersistRequest{
 			Payload: []byte(msg),
 		}
-		_, err := tc.client.Persist(ctx, persistReq)
+		_, err := tc.client.Persist(persistCtx, persistReq)
 		if err != nil {
 			tn.test.Fatal(err)
 		}
@@ -146,17 +152,20 @@ func (tn *testNetwork) persist(port int, messages ...string) *testNetwork {
 
 	return tn
 }
-
 func (tn *testNetwork) connect(port, toPort int) *testNetwork {
+	tc := tn.clients[port]
+	ctx := getClientContext(tc)
+	traceID := fmt.Sprintf("join@client%d", port)
+	connectCtx, span := global.Tracer(traceID).Start(ctx, traceID)
+	defer span.End()
 
 	from := tn.clients[port]
 	to := tn.clients[toPort]
 
-	ctx := context.Background()
 	joinReq := &pb.JoinRequest{
 		Address: to.lp.meta.Address,
 	}
-	_, err := from.client.JoinNetwork(ctx, joinReq)
+	_, err := from.client.JoinNetwork(connectCtx, joinReq)
 	if err != nil {
 		tn.test.Fatal(err)
 	}
@@ -236,9 +245,11 @@ func startLPTestServer(address string) (testClient, error) {
 		return testClient{}, fmt.Errorf("failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
-	// grpc.UnaryInterceptor(grpctrace.UnaryServerInterceptor(global.Tracer(""))),
-	// grpc.StreamInterceptor(grpctrace.StreamServerInterceptor(global.Tracer(""))),
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(grpctrace.UnaryServerInterceptor(
+			global.Tracer(fmt.Sprintf("server@%s", address)))),
+		grpc.StreamInterceptor(grpctrace.StreamServerInterceptor(
+			global.Tracer(fmt.Sprintf("stream-server@%s", address)))))
 
 	pb.RegisterLightpeerServer(grpcServer, lp)
 
@@ -249,9 +260,11 @@ func startLPTestServer(address string) (testClient, error) {
 	}()
 
 	var conn *grpc.ClientConn
-	conn, err = grpc.Dial(lp.meta.Address, grpc.WithInsecure())
-	// grpc.WithUnaryInterceptor(grpctrace.UnaryClientInterceptor(global.Tracer(""))),
-	// grpc.WithStreamInterceptor(grpctrace.StreamClientInterceptor(global.Tracer(""))))
+	conn, err = grpc.Dial(lp.meta.Address, grpc.WithInsecure(),
+		grpc.WithUnaryInterceptor(grpctrace.UnaryClientInterceptor(
+			global.Tracer(fmt.Sprintf("client@%s", address)))),
+		grpc.WithStreamInterceptor(grpctrace.StreamClientInterceptor(
+			global.Tracer(fmt.Sprintf("stream-client@%s", address)))))
 	if err != nil {
 		return testClient{}, fmt.Errorf("did not connect: %s", err)
 	}
@@ -289,8 +302,12 @@ func assertExpectedMessages(expectedMessages []string, tc testClient) error {
 
 	nOfMessages := len(expectedMessages)
 
-	ctx := context.Background()
-	queryClient, err := tc.client.Query(ctx, &pb.EmptyQueryRequest{})
+	ctx := getClientContext(tc)
+	traceID := fmt.Sprintf("query@client%s", tc.lp.meta.Address)
+	queryCtx, span := global.Tracer(traceID).Start(ctx, traceID)
+	defer span.End()
+
+	queryClient, err := tc.client.Query(queryCtx, &pb.EmptyQueryRequest{})
 	if err != nil {
 		return err
 	}
@@ -312,4 +329,16 @@ func assertExpectedMessages(expectedMessages []string, tc testClient) error {
 		}
 	}
 	return nil
+}
+
+func getClientContext(tc testClient) context.Context {
+	address := tc.lp.meta.Address
+	clientID := fmt.Sprintf("test-client@%s", address)
+	md := metadata.Pairs(
+		"timestamp", time.Now().Format(time.StampNano),
+		"client-id", clientID,
+	)
+
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	return ctx
 }
