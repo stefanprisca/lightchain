@@ -58,14 +58,20 @@ func (lp *lightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.
 		lightBlock.PrevID = lp.state.ID
 	}
 
-	err := lp.writeBlock(lightBlock)
+	err := lp.sendNewBlockNotifications(persistCtx, lightBlock)
+	if err != nil {
+		err = fmt.Errorf("could not send new block notifications: %v", err)
+		span.RecordError(persistCtx, err)
+		return nil, err
+	}
+
+	err = lp.writeBlock(lightBlock)
 	if err != nil {
 		return &pb.PersistResponse{}, err
 	}
 
 	lp.state = lightBlock
-	err = lp.sendNewBlockNotifications(persistCtx, lightBlock)
-	return &pb.PersistResponse{}, err
+	return &pb.PersistResponse{}, nil
 }
 
 func (lp *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_QueryServer) error {
@@ -119,24 +125,35 @@ func (lp *lightpeer) JoinNetwork(ctx context.Context, joinReq *pb.JoinRequest) (
 		return &pb.JoinResponse{}, err
 	}
 
+	err = lp.updateFromBlockStream(blockStream)
+	if err != nil {
+		err := fmt.Errorf("could not process block stream: %v", err)
+		span.RecordError(joinCtx, err)
+		return &pb.JoinResponse{}, err
+	}
+
+	span.AddEvent(joinCtx, fmt.Sprintf("successfully joined the network"))
+	return &pb.JoinResponse{}, nil
+}
+
+func (lp *lightpeer) updateFromBlockStream(blockStream pb.Lightpeer_ConnectNewPeerClient) error {
+
 	networkUpdated := false
 	var state *pb.Lightblock = nil
 	for {
 		block, err := blockStream.Recv()
 		if err == io.EOF {
-			span.AddEvent(joinCtx, fmt.Sprintf("finished receiving messages"))
+			// span.AddEvent(joinCtx, fmt.Sprintf("finished receiving messages"))
 			break
 		}
 		if err != nil {
 			err = fmt.Errorf("error while receiving messages: %v", err)
-			span.RecordError(joinCtx, err)
-			return &pb.JoinResponse{}, err
+			return err
 		}
 		err = lp.writeBlock(*block)
 		if err != nil {
 			err = fmt.Errorf("error while writing new block: %v", err)
-			span.RecordError(joinCtx, err)
-			return &pb.JoinResponse{}, err
+			return err
 		}
 
 		if state == nil {
@@ -147,8 +164,7 @@ func (lp *lightpeer) JoinNetwork(ctx context.Context, joinReq *pb.JoinRequest) (
 			network := []pb.PeerInfo{}
 			err := json.Unmarshal(block.Payload, &network)
 			if err != nil {
-				return &pb.JoinResponse{},
-					fmt.Errorf("could not unmarshal network block: %v", err)
+				return fmt.Errorf("could not unmarshal network block: %v", err)
 			}
 
 			lp.network = network
@@ -157,11 +173,9 @@ func (lp *lightpeer) JoinNetwork(ctx context.Context, joinReq *pb.JoinRequest) (
 	}
 	lp.state = *state
 	if !networkUpdated {
-		return &pb.JoinResponse{},
-			fmt.Errorf("no network update blocks found, network state might be invalid")
+		return fmt.Errorf("no network update blocks found, network state might be invalid")
 	}
-	span.AddEvent(joinCtx, fmt.Sprintf("successfully joined the network"))
-	return &pb.JoinResponse{}, nil
+	return nil
 }
 
 // Connect accepts connection from other peers.
@@ -170,9 +184,9 @@ func (lp *lightpeer) ConnectNewPeer(cReq *pb.ConnectRequest, stream pb.Lightpeer
 	connectCtx, span := lp.tr.Start(stream.Context(), fmt.Sprintf("@%s - connect %s", lp.meta.Address, cReq.Peer.Address))
 	defer span.End()
 
-	lp.network = append(lp.network, *cReq.Peer)
+	newNetwork := append(lp.network, *cReq.Peer)
 
-	rawNetwork, err := json.Marshal(lp.network)
+	rawNetwork, err := json.Marshal(newNetwork)
 	if err != nil {
 		err = fmt.Errorf("could not marshal new network: %v", err)
 		span.RecordError(connectCtx, err)
@@ -185,13 +199,22 @@ func (lp *lightpeer) ConnectNewPeer(cReq *pb.ConnectRequest, stream pb.Lightpeer
 		PrevID:  lp.state.ID,
 	}
 
+	err = lp.sendNewBlockNotifications(connectCtx, lightBlock)
+	if err != nil {
+		err = fmt.Errorf("could not send new block notifications: %v", err)
+		span.RecordError(connectCtx, err)
+		return err
+	}
+
 	err = lp.writeBlock(lightBlock)
 	if err != nil {
 		err = fmt.Errorf("could not write new network block: %v", err)
 		span.RecordError(connectCtx, err)
 		return err
 	}
+
 	lp.state = lightBlock
+	lp.network = newNetwork
 
 	blockChan := lp.readBlocks()
 	for blockResp := range blockChan {
@@ -207,12 +230,6 @@ func (lp *lightpeer) ConnectNewPeer(cReq *pb.ConnectRequest, stream pb.Lightpeer
 		stream.Send(lb)
 	}
 
-	err = lp.sendNewBlockNotifications(connectCtx, lightBlock)
-	if err != nil {
-		err = fmt.Errorf("could not send new block notifications: %v", err)
-		span.RecordError(connectCtx, err)
-		return err
-	}
 	span.AddEvent(connectCtx, fmt.Sprintf("successfully connected new peer"))
 	return nil
 }
@@ -220,6 +237,71 @@ func (lp *lightpeer) ConnectNewPeer(cReq *pb.ConnectRequest, stream pb.Lightpeer
 type blockResponse struct {
 	block pb.Lightblock
 	err   error
+}
+
+func (lp *lightpeer) sendNewBlockNotifications(ctx context.Context, block pb.Lightblock) error {
+	for _, peer := range lp.network {
+		if peer.Address == lp.meta.Address {
+			continue
+		}
+
+		conn, err := grpc.Dial(peer.Address, grpc.WithInsecure(),
+			grpc.WithUnaryInterceptor(grpctrace.UnaryClientInterceptor(
+				global.Tracer(fmt.Sprintf("client@%s", peer.Address)))),
+			grpc.WithStreamInterceptor(grpctrace.StreamClientInterceptor(
+				global.Tracer(fmt.Sprintf("stream-client@%s", peer.Address)))))
+		if err != nil {
+			return fmt.Errorf("did not connect: %s", err)
+		}
+
+		client := pb.NewLightpeerClient(conn)
+
+		newBlock := &pb.Lightblock{}
+		*newBlock = block
+		_, err = client.NotifyNewBlock(ctx, newBlock)
+		conn.Close()
+
+		if err != nil {
+			return fmt.Errorf("could not notify new block for %v: %v", peer.Address, err)
+		}
+	}
+
+	return nil
+}
+
+func (lp *lightpeer) NotifyNewBlock(ctx context.Context, newBlock *pb.Lightblock) (*pb.NewBlockResponse, error) {
+	notifyNewBlockCtx, span := lp.tr.Start(ctx, fmt.Sprintf("@%s - notifyNewBlock", lp.meta.Address))
+	defer span.End()
+
+	if newBlock.PrevID != lp.state.ID {
+		err := fmt.Errorf("new block links to invalid parent")
+		span.RecordError(notifyNewBlockCtx, err)
+		return &pb.NewBlockResponse{}, err
+	}
+
+	err := lp.writeBlock(*newBlock)
+	if err != nil {
+		err = fmt.Errorf("could not persist new block: %v", err)
+		span.RecordError(notifyNewBlockCtx, err)
+		return &pb.NewBlockResponse{}, err
+	}
+	lp.state = *newBlock
+
+	if newBlock.Type == pb.Lightblock_NETWORK {
+		network := []pb.PeerInfo{}
+		err := json.Unmarshal(newBlock.Payload, &network)
+		if err != nil {
+			err = fmt.Errorf("could not unmarshal network block: %v", err)
+			span.RecordError(notifyNewBlockCtx, err)
+			return &pb.NewBlockResponse{}, err
+		}
+
+		lp.network = network
+	}
+
+	span.AddEvent(notifyNewBlockCtx, fmt.Sprintf("successfully recorded new block"))
+
+	return &pb.NewBlockResponse{}, nil
 }
 
 func (lp *lightpeer) readBlocks() <-chan blockResponse {
@@ -263,63 +345,4 @@ func (lp *lightpeer) writeBlock(block pb.Lightblock) error {
 	}
 
 	return nil
-}
-
-func (lp *lightpeer) sendNewBlockNotifications(ctx context.Context, block pb.Lightblock) error {
-	for _, peer := range lp.network {
-		if peer.Address == lp.meta.Address {
-			continue
-		}
-
-		conn, err := grpc.Dial(peer.Address, grpc.WithInsecure(),
-			grpc.WithUnaryInterceptor(grpctrace.UnaryClientInterceptor(
-				global.Tracer(fmt.Sprintf("client@%s", peer.Address)))),
-			grpc.WithStreamInterceptor(grpctrace.StreamClientInterceptor(
-				global.Tracer(fmt.Sprintf("stream-client@%s", peer.Address)))))
-		if err != nil {
-			return fmt.Errorf("did not connect: %s", err)
-		}
-
-		client := pb.NewLightpeerClient(conn)
-
-		newBlock := &pb.Lightblock{}
-		*newBlock = block
-		_, err = client.NotifyNewBlock(ctx, newBlock)
-		conn.Close()
-
-		if err != nil {
-			return fmt.Errorf("could not notify new block for %v: %v", peer.Address, err)
-		}
-	}
-
-	return nil
-}
-
-func (lp *lightpeer) NotifyNewBlock(ctx context.Context, newBlock *pb.Lightblock) (*pb.NewBlockResponse, error) {
-	notifyNewBlockCtx, span := lp.tr.Start(ctx, fmt.Sprintf("@%s - notifyNewBlock", lp.meta.Address))
-	defer span.End()
-
-	err := lp.writeBlock(*newBlock)
-	if err != nil {
-		err = fmt.Errorf("could not persist new block: %v", err)
-		span.RecordError(notifyNewBlockCtx, err)
-		return &pb.NewBlockResponse{}, err
-	}
-	lp.state = *newBlock
-
-	if newBlock.Type == pb.Lightblock_NETWORK {
-		network := []pb.PeerInfo{}
-		err := json.Unmarshal(newBlock.Payload, &network)
-		if err != nil {
-			err = fmt.Errorf("could not unmarshal network block: %v", err)
-			span.RecordError(notifyNewBlockCtx, err)
-			return &pb.NewBlockResponse{}, err
-		}
-
-		lp.network = network
-	}
-
-	span.AddEvent(notifyNewBlockCtx, fmt.Sprintf("successfully recorded new block"))
-
-	return &pb.NewBlockResponse{}, nil
 }

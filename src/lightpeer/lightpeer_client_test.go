@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
 	"go.opentelemetry.io/otel/api/global"
 	"go.opentelemetry.io/otel/plugin/grpctrace"
@@ -99,6 +100,23 @@ func TestThreePeerNetworkUpdatesTopology(t *testing.T) {
 		assertNetworkTopology(8081, 8082, 8083)
 }
 
+// Test fails because peers don't notify new blocks yet
+func TestNotifyInvalidBlockRefused(t *testing.T) {
+	tn := newTestNetwork(t) //.withOTLP(OTLPAddress, "TestThreePeerNetworkUpdatesTopology")
+	defer tn.stop()
+
+	tn.startLPServer(8081).
+		startLPServer(8082).
+		connect(8082, 8081).
+		startLPServer(8083).
+		connect(8083, 8082).
+		persist(8083, "8083").
+		notifyNewBlock(8082, pb.Lightblock{Type: pb.Lightblock_CLIENT}).
+		notifyNewBlock(8081, pb.Lightblock{Type: pb.Lightblock_CLIENT, PrevID: uuid.New().String()}).
+		notifyNewBlock(8083, pb.Lightblock{PrevID: uuid.New().String()}).
+		assertExpectedMessages("8083")
+}
+
 type testNetwork struct {
 	test          *testing.T
 	clients       map[int]testClient
@@ -169,6 +187,22 @@ func (tn *testNetwork) connect(port, toPort int) *testNetwork {
 	if err != nil {
 		tn.test.Fatal(err)
 	}
+
+	return tn
+}
+
+func (tn *testNetwork) notifyNewBlock(port int, block pb.Lightblock) *testNetwork {
+	tc := tn.clients[port]
+	ctx := getClientContext(tc)
+	traceID := fmt.Sprintf("notifyNewBlock@client%d", port)
+	notifyCtx, span := global.Tracer(traceID).Start(ctx, traceID)
+	defer span.End()
+
+	nb := &pb.Lightblock{}
+	*nb = block
+
+	_, err := tc.client.NotifyNewBlock(notifyCtx, nb)
+	tn.test.Logf("notify new block returned with error: %v", err)
 
 	return tn
 }
