@@ -111,16 +111,54 @@ func TestNotifyInvalidBlockRefused(t *testing.T) {
 		startLPServer(8083).
 		connect(8083, 8082).
 		persist(8083, "8083").
-		notifyNewBlock(8082, pb.Lightblock{Type: pb.Lightblock_CLIENT}).
-		notifyNewBlock(8081, pb.Lightblock{Type: pb.Lightblock_CLIENT, PrevID: uuid.New().String()}).
-		notifyNewBlock(8083, pb.Lightblock{PrevID: uuid.New().String()}).
+		expectFailure().notifyNewBlock(8082, pb.Lightblock{Type: pb.Lightblock_CLIENT}).assertFailed().
+		expectFailure().notifyNewBlock(8081, pb.Lightblock{Type: pb.Lightblock_CLIENT, PrevID: uuid.New().String()}).assertFailed().
+		expectFailure().notifyNewBlock(8083, pb.Lightblock{PrevID: uuid.New().String()}).assertFailed().
 		assertExpectedMessages("8083")
 }
 
+func TestInvalidBlockDoesNotUpdateState(t *testing.T) {
+	tn := newTestNetwork(t) //.withOTLP(OTLPAddress, "TestThreePeerNetworkUpdatesTopology")
+	defer tn.stop()
+
+	newState := &pb.Lightblock{}
+	tn.startLPServer(8081).
+		startLPServer(8082).
+		connect(8082, 8081).
+		persist(8082, "8082").
+		withNewState(8081, "newState", newState).
+		expectFailure().persist(8082, "8082#2").assertFailed().
+		assertExpectedMessagesFor(8081, "newState", "8082").
+		assertExpectedMessagesFor(8082, "8082")
+}
+
+func TestNotifyRecoversAfterStateMismatch(t *testing.T) {
+	tn := newTestNetwork(t) //.withOTLP(OTLPAddress, "TestThreePeerNetworkUpdatesTopology")
+	defer tn.stop()
+
+	newState := &pb.Lightblock{}
+
+	tn.startLPServer(8081).
+		startLPServer(8082).
+		connect(8082, 8081).
+		persist(8082, "8082").
+		assertExpectedMessages("8082").
+		withNewState(8081, "newState", newState).
+		expectFailure().persist(8082, "8082#2").assertFailed().
+		assertExpectedMessagesFor(8081, "newState", "8082").
+		assertExpectedMessagesFor(8082, "8082").
+		notifyNewBlock(8082, *newState).
+		assertExpectedMessages("newState", "8082").
+		persist(8082, "8082#2").
+		assertExpectedMessages("8082#2", "newState", "8082")
+
+}
+
 type testNetwork struct {
-	test          *testing.T
-	clients       map[int]testClient
-	otelFinalizer func() error
+	test            *testing.T
+	clients         map[int]testClient
+	otelFinalizer   func() error
+	ignoreNextError bool
 }
 
 func newTestNetwork(test *testing.T) *testNetwork {
@@ -140,9 +178,7 @@ func (tn *testNetwork) withOTLP(otlpBackend, serviceName string) *testNetwork {
 func (tn *testNetwork) startLPServer(port int) *testNetwork {
 	address := fmt.Sprintf(":%d", port)
 	tc, err := startLPTestServer(address)
-	if err != nil {
-		tn.test.Fatal(err)
-	}
+	tn.handleError("%v", err)
 
 	tn.clients[port] = tc
 	// sleep a bit to give the gRPC server a chance to start
@@ -163,9 +199,7 @@ func (tn *testNetwork) persist(port int, messages ...string) *testNetwork {
 			Payload: []byte(msg),
 		}
 		_, err := tc.client.Persist(persistCtx, persistReq)
-		if err != nil {
-			tn.test.Fatal(err)
-		}
+		tn.handleError("%v", err)
 	}
 
 	return tn
@@ -184,9 +218,7 @@ func (tn *testNetwork) connect(port, toPort int) *testNetwork {
 		Address: to.lp.meta.Address,
 	}
 	_, err := from.client.JoinNetwork(connectCtx, joinReq)
-	if err != nil {
-		tn.test.Fatal(err)
-	}
+	tn.handleError("%v", err)
 
 	return tn
 }
@@ -202,8 +234,53 @@ func (tn *testNetwork) notifyNewBlock(port int, block pb.Lightblock) *testNetwor
 	*nb = block
 
 	_, err := tc.client.NotifyNewBlock(notifyCtx, nb)
-	tn.test.Logf("notify new block returned with error: %v", err)
+	tn.handleError("notify new block returned with error: %v", err)
 
+	return tn
+}
+
+func (tn *testNetwork) withNewState(port int, msg string, outState *pb.Lightblock) *testNetwork {
+	tc := tn.clients[port]
+	ctx := getClientContext(tc)
+	traceID := fmt.Sprintf("changeState@client%d", port)
+	_, span := global.Tracer(traceID).Start(ctx, traceID)
+	defer span.End()
+
+	newState := pb.Lightblock{
+		ID:      uuid.New().String(),
+		PrevID:  tc.lp.state.ID,
+		Payload: []byte(msg),
+		Type:    pb.Lightblock_CLIENT,
+	}
+
+	tn.notifyNewBlock(port, newState)
+	*outState = newState
+
+	return tn
+}
+
+func (tn *testNetwork) handleError(formatMsg string, err error) {
+	if err == nil {
+		return
+	}
+
+	if tn.ignoreNextError {
+		tn.ignoreNextError = false
+		return
+	}
+
+	tn.test.Fatalf(fmt.Sprintf(formatMsg, err))
+}
+
+func (tn *testNetwork) expectFailure() *testNetwork {
+	tn.ignoreNextError = true
+	return tn
+}
+
+func (tn *testNetwork) assertFailed() *testNetwork {
+	if tn.ignoreNextError {
+		tn.test.Fatalf("expected previous operation to fail")
+	}
 	return tn
 }
 
@@ -213,6 +290,16 @@ func (tn *testNetwork) assertExpectedMessages(messages ...string) *testNetwork {
 		if err != nil {
 			tn.test.Fatal(err)
 		}
+	}
+
+	return tn
+}
+
+func (tn *testNetwork) assertExpectedMessagesFor(port int, messages ...string) *testNetwork {
+	tc := tn.clients[port]
+	err := assertExpectedMessages(messages, tc)
+	if err != nil {
+		tn.test.Fatal(err)
 	}
 
 	return tn
