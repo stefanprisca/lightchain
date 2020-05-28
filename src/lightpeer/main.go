@@ -44,7 +44,7 @@ func main() {
 	}
 
 	listenerAddress := fmt.Sprintf(":%d", *port)
-	lis, err := net.Listen("tcp", *address)
+	lis, err := net.Listen("tcp", listenerAddress)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -57,7 +57,7 @@ func main() {
 	)
 
 	peerAddress := fmt.Sprintf("%s:%d", *host, *port)
-	meta := pb.PeerInfo{Address: *peerAddress}
+	meta := pb.PeerInfo{Address: peerAddress}
 	pb.RegisterLightpeerServer(grpcServer, &lightpeer{
 		tr:          tr,
 		storagePath: *blockRepo,
