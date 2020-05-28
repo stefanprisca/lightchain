@@ -6,4 +6,4 @@ COPY ./bin/lightpeer .
 
 EXPOSE 9081
 
-CMD ["./lightpeer", "-v", "-repo=${LP_BLOCKREPO}", "-otlp=${LP_OTLPBACKEND}"]
+CMD ["./lightpeer", "-repo=./blockrepo"]
