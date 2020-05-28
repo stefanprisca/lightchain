@@ -18,6 +18,6 @@ kind: Kustomization
 images:
 - name: localhost:32000/lightpeer
   newName: localhost:32000/lightpeer
-  newTag: 0.1.0-1c7f9fb1275874f52e2196a85ebead90
+  newTag: 0.1.0-9b66a5cbd15cd7fdc4e2842e5ecfe5e0
 resources:
 - lightpeer.yaml

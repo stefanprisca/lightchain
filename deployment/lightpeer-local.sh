@@ -1,3 +1,5 @@
+CGO_ENABLED=0 GOOS=linux go build -o ./bin/lightpeer ./src/lightpeer/
+
 version="0.1.0"
 buildid=$(dbus-uuidgen)
 dockerTag="localhost:32000/lightpeer:$version-$buildid"
