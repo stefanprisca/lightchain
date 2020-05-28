@@ -16,7 +16,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net"
 
@@ -31,7 +30,7 @@ func main() {
 	var verbose = flag.Bool("v", false, "runs verbose - gathering traces with otel")
 	var blockRepo = flag.String("repo", "testdata", "repo for storing the generated blocks")
 	var otlpBackend = flag.String("otlp", OTLPAddress, "backend address for otlp traces and metrics")
-	var port = flag.Int("p", 9081, "the port to listen to")
+	var address = flag.String("addr", ":9081", "the port to listen to")
 	flag.Parse()
 
 	log.Printf("Starting the lightpeer with options: v: %v ; repo: %s ; otlp: %s\n",
@@ -41,8 +40,8 @@ func main() {
 		otelFinalizer := initOtel(*otlpBackend, ServiceName)
 		defer otelFinalizer()
 	}
-	peerAddress := fmt.Sprintf(":%d", *port)
-	lis, err := net.Listen("tcp", peerAddress)
+
+	lis, err := net.Listen("tcp", *address)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -53,7 +52,7 @@ func main() {
 		grpc.UnaryInterceptor(grpctrace.UnaryServerInterceptor(tr)),
 		grpc.StreamInterceptor(grpctrace.StreamServerInterceptor(tr)),
 	)
-	meta := pb.PeerInfo{Address: peerAddress}
+	meta := pb.PeerInfo{Address: *address}
 	pb.RegisterLightpeerServer(grpcServer, &lightpeer{
 		tr:          tr,
 		storagePath: *blockRepo,
