@@ -25,6 +25,8 @@ import (
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
 	"go.opentelemetry.io/otel/api/global"
 	"go.opentelemetry.io/otel/plugin/grpctrace"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func main() {
@@ -42,31 +44,41 @@ func main() {
 		otelFinalizer := initOtel(*otlpBackend, ServiceName)
 		defer otelFinalizer()
 	}
-
 	listenerAddress := fmt.Sprintf(":%d", *port)
 	lis, err := net.Listen("tcp", listenerAddress)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	tr := global.Tracer(ServiceName)
-
-	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(grpctrace.UnaryServerInterceptor(tr)),
-		grpc.StreamInterceptor(grpctrace.StreamServerInterceptor(tr)),
-	)
-
-	peerAddress := fmt.Sprintf("%s:%d", *host, *port)
-	meta := pb.PeerInfo{Address: peerAddress}
-	pb.RegisterLightpeerServer(grpcServer, &lightpeer{
-		tr:          tr,
-		storagePath: *blockRepo,
-		meta:        meta,
-		network:     []pb.PeerInfo{meta},
-	})
-
+	grpcServer, _, nhc := newLPGrpcServer(*host, *port, *blockRepo)
+	defer nhc.stopPeerHealthCheck()
 	log.Println("Start serving gRPC connections...")
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
+}
+
+func newLPGrpcServer(host string, port int, blockRepo string) (*grpc.Server, *lightpeer, networkHealthChecker) {
+	peerAddress := fmt.Sprintf("%s:%d", host, port)
+	tr := global.Tracer(fmt.Sprintf("%s-server@%s", ServiceName, peerAddress))
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(grpctrace.UnaryServerInterceptor(tr)),
+		grpc.StreamInterceptor(grpctrace.StreamServerInterceptor(tr)))
+
+	meta := pb.PeerInfo{Address: peerAddress}
+
+	lp := &lightpeer{
+		tr:          tr,
+		storagePath: blockRepo,
+		meta:        meta,
+		network:     []pb.PeerInfo{meta},
+	}
+
+	pb.RegisterLightpeerServer(grpcServer, lp)
+	healthServer := health.NewServer()
+	healthpb.RegisterHealthServer(grpcServer, healthServer)
+
+	nhc := networkHealthChecker{lp: lp}
+	nhc.startPeerHealthCheck()
+	return grpcServer, lp, nhc
 }

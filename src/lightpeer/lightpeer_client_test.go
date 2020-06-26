@@ -26,6 +26,7 @@ import (
 
 	"github.com/google/uuid"
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/api/global"
 	"go.opentelemetry.io/otel/plugin/grpctrace"
 	"google.golang.org/grpc"
@@ -154,6 +155,30 @@ func TestNotifyRecoversAfterStateMismatch(t *testing.T) {
 
 }
 
+func TestNetworkRecoversAfterPeerFailure(t *testing.T) {
+	tn := newTestNetwork(t) //.withOTLP(OTLPAddress, "TestThreePeerNetworkUpdatesTopology")
+	defer tn.stop()
+
+	tn.startLPServer(8091)
+
+	time.Sleep(time.Second)
+	tn.startLPServer(8092).
+		connect(8092, 8091).
+		startLPServer(8093).
+		connect(8093, 8092).
+		assertNetworkTopology(8091, 8092, 8093).
+		stopLPServer(8092).
+		persist(8091, "8091")
+
+	time.Sleep(time.Second)
+
+	tn.assertNetworkTopology(8091, 8093).
+		startLPServer(8092).
+		connect(8092, 8091).
+		assertNetworkTopology(8091, 8093, 8092).
+		assertExpectedMessages("8091")
+}
+
 type testNetwork struct {
 	test            *testing.T
 	clients         map[int]testClient
@@ -176,14 +201,20 @@ func (tn *testNetwork) withOTLP(otlpBackend, serviceName string) *testNetwork {
 }
 
 func (tn *testNetwork) startLPServer(port int) *testNetwork {
-	address := fmt.Sprintf(":%d", port)
-	tc, err := startLPTestServer(address)
+	tc, err := startLPTestServer(port)
 	tn.handleError("%v", err)
-
 	tn.clients[port] = tc
 	// sleep a bit to give the gRPC server a chance to start
 	//time.Sleep(time.Second)
 
+	return tn
+}
+
+func (tn *testNetwork) stopLPServer(port int) *testNetwork {
+
+	tc := tn.clients[port]
+	require.NoError(tn.test, tc.stop())
+	delete(tn.clients, port)
 	return tn
 }
 
@@ -349,30 +380,17 @@ type testClient struct {
 	stop   func() error
 }
 
-func startLPTestServer(address string) (testClient, error) {
+func startLPTestServer(port int) (testClient, error) {
 
-	blockRepoPath := fmt.Sprintf("./testdata/%s", address)
+	blockRepoPath := fmt.Sprintf("./testdata/%d", port)
 	os.MkdirAll(blockRepoPath, 0777)
 
-	lp := &lightpeer{
-		tr:          global.Tracer("foo"),
-		storagePath: blockRepoPath,
-		meta:        pb.PeerInfo{Address: address},
-		network:     []pb.PeerInfo{pb.PeerInfo{Address: address}},
-	}
-
-	lis, err := net.Listen("tcp", lp.meta.Address)
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return testClient{}, fmt.Errorf("failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(grpctrace.UnaryServerInterceptor(
-			global.Tracer(fmt.Sprintf("server@%s", address)))),
-		grpc.StreamInterceptor(grpctrace.StreamServerInterceptor(
-			global.Tracer(fmt.Sprintf("stream-server@%s", address)))))
-
-	pb.RegisterLightpeerServer(grpcServer, lp)
+	grpcServer, lp, nhc := newLPGrpcServer("", port, blockRepoPath)
 
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
@@ -381,11 +399,10 @@ func startLPTestServer(address string) (testClient, error) {
 	}()
 
 	var conn *grpc.ClientConn
+	clientTr := global.Tracer(fmt.Sprintf("client@%s", lp.meta.Address))
 	conn, err = grpc.Dial(lp.meta.Address, grpc.WithInsecure(),
-		grpc.WithUnaryInterceptor(grpctrace.UnaryClientInterceptor(
-			global.Tracer(fmt.Sprintf("client@%s", address)))),
-		grpc.WithStreamInterceptor(grpctrace.StreamClientInterceptor(
-			global.Tracer(fmt.Sprintf("stream-client@%s", address)))))
+		grpc.WithUnaryInterceptor(grpctrace.UnaryClientInterceptor(clientTr)),
+		grpc.WithStreamInterceptor(grpctrace.StreamClientInterceptor(clientTr)))
 	if err != nil {
 		return testClient{}, fmt.Errorf("did not connect: %s", err)
 	}
@@ -398,6 +415,7 @@ func startLPTestServer(address string) (testClient, error) {
 		stop: func() error {
 			clientError := conn.Close()
 			grpcServer.Stop()
+			nhc.stopPeerHealthCheck()
 			return clientError
 		}}, nil
 }

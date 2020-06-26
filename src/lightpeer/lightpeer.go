@@ -25,6 +25,8 @@ import (
 	"github.com/google/uuid"
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.opentelemetry.io/otel/api/global"
 	"go.opentelemetry.io/otel/api/trace"
@@ -75,7 +77,6 @@ func (lp *lightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.
 }
 
 func (lp *lightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_QueryServer) error {
-
 	queryCtx, span := lp.tr.Start(stream.Context(), fmt.Sprintf("@%s - query", lp.meta.Address))
 	defer span.End()
 
@@ -186,35 +187,11 @@ func (lp *lightpeer) ConnectNewPeer(cReq *pb.ConnectRequest, stream pb.Lightpeer
 
 	newNetwork := append(lp.network, *cReq.Peer)
 
-	rawNetwork, err := json.Marshal(newNetwork)
+	err := lp.updateNetwork(connectCtx, newNetwork)
 	if err != nil {
-		err = fmt.Errorf("could not marshal new network: %v", err)
 		span.RecordError(connectCtx, err)
 		return err
 	}
-	lightBlock := pb.Lightblock{
-		ID:      uuid.New().String(),
-		Payload: rawNetwork,
-		Type:    pb.Lightblock_NETWORK,
-		PrevID:  lp.state.ID,
-	}
-
-	err = lp.sendNewBlockNotifications(connectCtx, lightBlock)
-	if err != nil {
-		err = fmt.Errorf("could not send new block notifications: %v", err)
-		span.RecordError(connectCtx, err)
-		return err
-	}
-
-	err = lp.writeBlock(lightBlock)
-	if err != nil {
-		err = fmt.Errorf("could not write new network block: %v", err)
-		span.RecordError(connectCtx, err)
-		return err
-	}
-
-	lp.state = lightBlock
-	lp.network = newNetwork
 
 	blockChan := lp.readBlocks()
 	for blockResp := range blockChan {
@@ -234,12 +211,43 @@ func (lp *lightpeer) ConnectNewPeer(cReq *pb.ConnectRequest, stream pb.Lightpeer
 	return nil
 }
 
+func (lp *lightpeer) updateNetwork(ctx context.Context, newNetwork []pb.PeerInfo) error {
+	rawNetwork, err := json.Marshal(newNetwork)
+	if err != nil {
+		err = fmt.Errorf("could not marshal new network: %v", err)
+		return err
+	}
+	lightBlock := pb.Lightblock{
+		ID:      uuid.New().String(),
+		Payload: rawNetwork,
+		Type:    pb.Lightblock_NETWORK,
+		PrevID:  lp.state.ID,
+	}
+
+	err = lp.sendNewBlockNotifications(ctx, lightBlock)
+	if err != nil {
+		err = fmt.Errorf("could not send new block notifications: %v", err)
+		return err
+	}
+
+	err = lp.writeBlock(lightBlock)
+	if err != nil {
+		err = fmt.Errorf("could not write new network block: %v", err)
+		return err
+	}
+
+	lp.state = lightBlock
+	lp.network = newNetwork
+	return nil
+}
+
 type blockResponse struct {
 	block pb.Lightblock
 	err   error
 }
 
 func (lp *lightpeer) sendNewBlockNotifications(ctx context.Context, block pb.Lightblock) error {
+
 	for _, peer := range lp.network {
 		if peer.Address == lp.meta.Address {
 			continue
@@ -261,7 +269,8 @@ func (lp *lightpeer) sendNewBlockNotifications(ctx context.Context, block pb.Lig
 		_, err = client.NotifyNewBlock(ctx, newBlock)
 		conn.Close()
 
-		if err != nil {
+		errStatus, _ := status.FromError(err)
+		if err != nil && errStatus.Code() == codes.Unknown {
 			return fmt.Errorf("could not notify new block for %v: %v", peer.Address, err)
 		}
 	}
@@ -270,9 +279,9 @@ func (lp *lightpeer) sendNewBlockNotifications(ctx context.Context, block pb.Lig
 }
 
 func (lp *lightpeer) NotifyNewBlock(ctx context.Context, newBlock *pb.Lightblock) (*pb.NewBlockResponse, error) {
+
 	notifyNewBlockCtx, span := lp.tr.Start(ctx, fmt.Sprintf("@%s - notifyNewBlock", lp.meta.Address))
 	defer span.End()
-
 	if newBlock.PrevID != lp.state.ID {
 		err := fmt.Errorf("new block links to invalid parent")
 		span.RecordError(notifyNewBlockCtx, err)
