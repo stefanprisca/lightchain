@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: persister
+  namespace: lightchain
+  labels:
+    app: persister
+spec:
+  ports:
+  - port: 9081
+    targetPort: 9081
+    name: lightpeer
+  clusterIP: None
+  selector:
+    app: persister
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: persister
+  namespace: lightchain
+spec:
+  selector:
+    matchLabels:
+      app: persister # has to match .spec.template.metadata.labels
+  serviceName: "persister"
+  replicas: 1 # by default is 1
+  template:
+    metadata:
+      labels:
+        app: persister # has to match .spec.selector.matchLabels
+    spec:
+      containers:
+      - name: persister
+        image: localhost:32000/persister:0.1.0
+        imagePullPolicy: Always
+        env:
+          - name: LP_ADDRESS
+            value: ":9081"
+      - name: lightpeer
+        image: localhost:32000/lightpeer:example
+        imagePullPolicy: Always
+        command: ["./lightpeer"]
+        args: ["-repo=$(LP_BLOCKREPO)", "-host=0.0.0.0"]
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi
+        env:
+          - name: LP_BLOCKREPO
+            value: "/blockRepository"
+        ports:
+        - containerPort: 9081 # gRPC port.
+        volumeMounts:
+        - name: persister-lightpeer-sto
+          mountPath: /blockRepository
+  volumeClaimTemplates:
+  - metadata:
+      name: persister-lightpeer-sto
+      namespace: lightchain
+    spec:
+      accessModes: 
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 50Mi

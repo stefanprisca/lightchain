@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: reader
+  namespace: lightchain
+  labels:
+    app: reader
+spec:
+  ports:
+  - port: 80
+    targetPort: 9081
+    name: lightpeer
+  clusterIP: None
+  selector:
+    app: reader
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: reader
+  namespace: lightchain
+spec:
+  selector:
+    matchLabels:
+      app: reader # has to match .spec.template.metadata.labels
+  serviceName: "reader"
+  replicas: 1 # by default is 1
+  template:
+    metadata:
+      labels:
+        app: reader # has to match .spec.selector.matchLabels
+    spec:
+      containers:
+      - name: reader
+        image: localhost:32000/reader:0.1.0
+        imagePullPolicy: Always
+        env:
+          - name: LP_ADDRESS
+            value: ":9081"
+          - name: PERSISTER_ADDRESS
+            value: "persister-0.persister.lightchain.svc.cluster.local:9081"
+      - name: lightpeer
+        image: localhost:32000/lightpeer:example
+        imagePullPolicy: Always
+        command: ["./lightpeer"]
+        args: ["-repo=$(LP_BLOCKREPO)", "-host=0.0.0.0"]
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi
+        env:
+          - name: LP_BLOCKREPO
+            value: "/blockRepository"
+        ports:
+        - containerPort: 9081 # gRPC port.
+        volumeMounts:
+        - name: reader-lightpeer-sto
+          mountPath: /blockRepository
+  volumeClaimTemplates:
+  - metadata:
+      name: reader-lightpeer-sto
+      namespace: lightchain
+    spec:
+      accessModes: 
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 50Mi
