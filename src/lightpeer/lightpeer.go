@@ -26,6 +26,8 @@ import (
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 
 	"go.opentelemetry.io/otel/api/global"
@@ -35,6 +37,7 @@ import (
 
 type lightpeer struct {
 	pb.LightpeerServer
+	health.Server
 	tr          trace.Tracer
 	storagePath string
 	state       pb.Lightblock
@@ -354,4 +357,12 @@ func (lp *lightpeer) writeBlock(block pb.Lightblock) error {
 	}
 
 	return nil
+}
+
+// Check implements `service Health`.
+func (lp *lightpeer) Check(ctx context.Context, in *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
+	return &healthpb.HealthCheckResponse{
+		Status: healthpb.HealthCheckResponse_SERVING,
+	}, nil
+
 }

@@ -34,10 +34,21 @@ message Lightblock {
 }
 
 service Lightpeer {
+    // JoinNetwork tells the peer to join the network at the given address from JoinRequest.
+    // The peer will open a client connection to that address, and call ConnectNewPeer to join the network.
     rpc JoinNetwork (JoinRequest) returns (JoinResponse) {};
+
+    // ConnectNewPeer accepts a connection from another peer, adding it to the network.
+    // If successful, it returns a stream of all the messages which were stored in the network
     rpc ConnectNewPeer (ConnectRequest) returns (stream Lightblock) {};
+    
+    // Persist saves the state from the message on the chain
     rpc Persist (PersistRequest) returns (PersistResponse) {};
+    
+    // Query returns all the chain states saved by a Persist request
     rpc Query   (EmptyQueryRequest) returns (stream QueryResponse) {};
+    
+    // NotifyNewBlock is used by peers to notify each other of block updates
     rpc NotifyNewBlock (Lightblock) returns (NewBlockResponse) {};
 }
 

@@ -25,7 +25,6 @@ import (
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
 	"go.opentelemetry.io/otel/api/global"
 	"go.opentelemetry.io/otel/plugin/grpctrace"
-	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
@@ -75,8 +74,7 @@ func newLPGrpcServer(host string, port int, blockRepo string) (*grpc.Server, *li
 	}
 
 	pb.RegisterLightpeerServer(grpcServer, lp)
-	healthServer := health.NewServer()
-	healthpb.RegisterHealthServer(grpcServer, healthServer)
+	healthpb.RegisterHealthServer(grpcServer, lp)
 
 	nhc := networkHealthChecker{lp: lp}
 	nhc.startPeerHealthCheck()
