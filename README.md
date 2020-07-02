@@ -7,6 +7,6 @@ The goal of this project is to provide the simplest way to persist a state, sync
 
 # Examples
 
-see [](examples/kube-network)
+see [k8s example](examples/kube-network)
 
 # Architecture
