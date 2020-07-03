@@ -179,6 +179,32 @@ func TestNetworkRecoversAfterPeerFailure(t *testing.T) {
 		assertExpectedMessages("8091")
 }
 
+func TestPeerSelfRecovery(t *testing.T) {
+	tn := newTestNetwork(t) //.withOTLP(OTLPAddress, "TestThreePeerNetworkUpdatesTopology")
+	defer tn.stop()
+
+	tn.startLPServer(8091)
+
+	time.Sleep(time.Second)
+	tn.startLPServer(8092).
+		connect(8092, 8091).
+		startLPServer(8093).
+		connect(8093, 8092).
+		assertNetworkTopology(8091, 8092, 8093).
+		stopLPServer(8092).
+		persist(8091, "8091")
+
+	time.Sleep(time.Second)
+
+	tn.assertNetworkTopology(8091, 8093).
+		startLPServer(8092).
+		// In self-recovery mode, the peer should be able to regain access to the network from
+		// the information stored in its persistant storage. e.g. recreate the chain from the blocks it knows about
+		// connect(8092, 8091).
+		assertNetworkTopology(8091, 8093, 8092).
+		assertExpectedMessages("8091")
+}
+
 type testNetwork struct {
 	test            *testing.T
 	clients         map[int]testClient
