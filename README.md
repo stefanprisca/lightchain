@@ -2,7 +2,7 @@
 
 A lightweight blockchain network which achieves distributed state management through a simple p2p communication protocol based on gRPC.
 
-__WIP__ this project is under development and is a work in progress. Neither documentation nor code are stable.
+__WIP__ this project is under development and is subject to changes. Neither documentation nor code are in a stable format.
 
 # Vision
 
@@ -16,6 +16,8 @@ In short, the goal is to provide:
 - multi-node support, with auto-recovery and easy join
 - automatic scalability through a p2p network
 - 'stateless', transparent state storage
+- guaranteed global order of events and changes
+- same global view of the current state
 
 Note however that the storage is not indexed in any way and provides no complex query capabilities. All knowledge of what is stored and how it should be retrieved belongs to the applications themselves. This allows the lightchain to focus on keeping data in sync, without caring about what is actually stored. This might change as the service evolves.
 
@@ -41,6 +43,13 @@ As a user, I expect to easily understand where the data is stored and be able to
 As a user, I expect that the service responsible for replicating my data is reliable, and I do not wish to spend time managing it. Once set-up, the service should be able to maintain itself and recover from node failures. I also expect that the data is replicated upon recovery, and that my applications have full access to it after a restart.
 
 # Comparison with other technologies
+
+There are various other solutions out there for sharing data, ranging from databases (SQL/NoSql), highly available file systems (like data lakes) and simple volumes (like Kubernete's PVC). While all these technologies are excellent at solving specific problems, they don't excel when it comes to simply keeping a simple state in sync between your application's instances or nodes. 
+
+Classical databases can be a good option, but they require another whole server to run and be maintained, and as the application grows so will the query frequency. And it can be a bit troublesome to maintain a whole database just to share some info that would fit in a file. The same for highly available file systems.
+
+On the other hand, volume shares like Kubernetes PVC are another simple option to store some data. But these don't guarantee that the data you store will be the same over all your nodes. Nor is there the guarantee of total order over the events.
+
 
 # Architecture
 
