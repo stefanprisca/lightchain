@@ -14,8 +14,12 @@
 
 package main
 
-// In self-recovery mode, the peer should be able to regain access to the network from
+// In self-recovery mode, a failed peer should be able to regain access to the network from
 // the information stored in its persistant storage. e.g. recreate the chain from the blocks it knows about
+// This is a requirement, since the applications using lightchain cannot have the full responsibility of
+// maintaining the network. Client applications have the responsibility of joining peers together, but the peers
+// themselves should do everything possible afterwards to maintain the network topology, which means rejoining
+// the network in case of failure.
 
 // The recovery module provides the recovery service a peer should use when starting.
 // The steps for a successfull recovery are:
