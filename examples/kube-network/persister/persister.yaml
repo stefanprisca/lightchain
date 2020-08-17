@@ -46,14 +46,15 @@ spec:
     metadata:
       labels:
         app: persister # has to match .spec.selector.matchLabels
+        klight.networkID: myFirstNetwork # the label that KLight operator listens to to connect the pod to the network.
     spec:
       containers:
       - name: persister
         image: localhost:32000/persister:0.1.0
         imagePullPolicy: Always
         env:
-          - name: LP_ADDRESS
-            value: ":9081"
+          - name: REL_STO_PATH
+            value: "foo/faa"
       - name: lightpeer
         image: localhost:32000/lightpeer:example
         imagePullPolicy: Always
@@ -69,6 +70,8 @@ spec:
         env:
           - name: LP_BLOCKREPO
             value: "/blockRepository"
+          - name: REL_STO_PATH
+            value: "foo/faa" 
         ports:
         - containerPort: 9081 # gRPC port.
         volumeMounts:

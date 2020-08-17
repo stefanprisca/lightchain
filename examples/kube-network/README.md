@@ -1,3 +1,5 @@
+__DEPRECATED__
+
 # Kube Network
 
 Simple example showing how a lightchain can be set-up for two services in kubernetes.

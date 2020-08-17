@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lightpod
+  labels:
+    klight.networkId : k8sPodNetwork
+spec:
+  volumes:
+  - name: tempSto
+    emptyDir: {}
+  containers:
+  - name: lightpeer
+    image: localhost:32000/lightpeer:example
+    imagePullPolicy: Always
+    command: ["./lightpeer"]
+    args: ["-statePath=$(STATE_PATH)", "-host=0.0.0.0"]
+    resources:
+      limits:
+        cpu: 100m
+        memory: 100Mi
+      requests:
+        cpu: 50m
+        memory: 50Mi
+    env:
+      - name: STATE_PATH
+        value: "/usr/share/tempSto" 
+    ports:
+    - containerPort: 9081 # gRPC port.
+    volumeMounts:
+    - name: tempSto
+      mountPath: /usr/share/tempSto
+  - name: writer
+    image: debian
+    volumeMounts:
+    - name: tempSto
+      mountPath: /tempSto
+    command: ["/bin/sh", "-c"]
+    args:
+      - while true; do
+          cat /tempSto/index.html;
+          sleep 2;
+        done

@@ -46,9 +46,9 @@ As a user, I expect that the service responsible for replicating my data is reli
 
 There are various other solutions out there for sharing data, ranging from databases (SQL/NoSql), highly available file systems (like data lakes) and simple volumes (like Kubernete's PVC). While all these technologies are excellent at solving specific problems, they don't excel when it comes to simply keeping a simple state in sync between your application's instances or nodes. 
 
-Classical databases can be a good option, but they require another whole server to run and be maintained, and as the application grows so will the query frequency. And it can be a bit troublesome to maintain a whole database just to share some info that would fit in a file. The same for highly available file systems.
+Classical databases can be a good option, but they require another whole server to run and be maintained, and as the application grows so will the maintenance burden. And it can be a bit troublesome to do all this just to share some info that would fit in a file. The same for highly available file systems, which can get a bit expensive as well.
 
-On the other hand, volume shares like Kubernetes PVC are another simple option to store some data. But these don't guarantee that the data you store will be the same over all your nodes. Nor is there the guarantee of total order over the events.
+On the other hand, volume shares like Kubernetes PVC are another simple option to store some data. But these don't guarantee that the data you store will be the same over all  nodes. Nor is there the guarantee of total order over the events. For example, if two k8s replicas write something at the same time, which will be the global state that clients see?
 
 
 # Architecture
