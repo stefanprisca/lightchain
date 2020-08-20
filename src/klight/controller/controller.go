@@ -35,6 +35,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
+const klightNetworkLabel string = "klight.networkId"
+
 type Controller struct {
 	indexer  cache.Indexer
 	queue    workqueue.RateLimitingInterface
@@ -86,7 +88,7 @@ func (c *Controller) syncToStdout(key string) error {
 		fmt.Printf("Sync/Add/Update for Pod %s\n", obj.(*v1.Pod).GetName())
 
 		// klight logic: reconcile networks
-		// reconcileNetwork(obj.(*v1.Pod))
+		reconcileLightNetwork(obj.(*v1.Pod))
 	}
 	return nil
 }
@@ -166,7 +168,7 @@ func main() {
 	}
 
 	// filter pods with klight labels only
-	selector, err := labels.Parse("klight.networkId")
+	selector, err := labels.Parse(klightNetworkLabel)
 	if err != nil {
 		klog.Fatal(err)
 	}

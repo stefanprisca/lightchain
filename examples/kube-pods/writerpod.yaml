@@ -23,28 +23,28 @@ spec:
   - name: tempsto
     emptyDir: {}
   containers:
-  # - name: lightpeer
-  #   image: localhost:32000/lightpeer:example
-  #   imagePullPolicy: Always
-  #   command: ["./lightpeer"]
-  #   args: ["-statePath=$(STATE_PATH)", "-host=0.0.0.0"]
-  #   resources:
-  #     limits:
-  #       cpu: 100m
-  #       memory: 100Mi
-  #     requests:
-  #       cpu: 50m
-  #       memory: 50Mi
-  #   env:
-  #     - name: LP_BLOCKREPO
-  #       value: "/blockRepository"
-  #     - name: STATE_PATH
-  #       value: "/usr/share/tempSto" 
-  #   ports:
-  #   - containerPort: 9081 # gRPC port.
-  #   volumeMounts:
-  #   - name: tempSto
-  #     mountPath: /usr/share/tempSto
+  - name: lightpeer
+    image: localhost:32000/lightpeer:0.0.1-k8s
+    imagePullPolicy: Always
+    command: ["./lightpeer"]
+    args: ["-repo=$(LP_BLOCKREPO)", "-host=0.0.0.0"] #"-statePath=$(STATE_PATH)", 
+    resources:
+      limits:
+        cpu: 100m
+        memory: 100Mi
+      requests:
+        cpu: 50m
+        memory: 50Mi
+    env:
+      - name: LP_BLOCKREPO
+        value: "/usr/share/tempsto"
+      - name: STATE_PATH
+        value: "/usr/share/tempsto" 
+    ports:
+    - containerPort: 9081 # gRPC port.
+    volumeMounts:
+    - name: tempsto
+      mountPath: /usr/share/tempsto
   - name: writer
     image: debian
     volumeMounts:
