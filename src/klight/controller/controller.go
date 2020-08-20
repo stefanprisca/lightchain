@@ -26,7 +26,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -149,7 +149,7 @@ func main() {
 	var kubeconfig string
 	var master string
 
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
+	flag.StringVar(&kubeconfig, "kubeconfig", "/var/snap/microk8s/current/credentials/client.config", "absolute path to the kubeconfig file")
 	flag.StringVar(&master, "master", "", "master url")
 	flag.Parse()
 
@@ -165,8 +165,18 @@ func main() {
 		klog.Fatal(err)
 	}
 
+	// filter pods with klight labels only
+	selector, err := labels.Parse("klight.networkId")
+	if err != nil {
+		klog.Fatal(err)
+	}
+
+	optionsModifier := func(options *meta_v1.ListOptions) {
+		options.LabelSelector = selector.String()
+	}
+
 	// create the pod watcher
-	podListWatcher := cache.NewListWatchFromClient(clientset.CoreV1().RESTClient(), "pods", "lightchain", fields.Everything())
+	podListWatcher := cache.NewFilteredListWatchFromClient(clientset.CoreV1().RESTClient(), "pods", "", optionsModifier)
 
 	// create the workqueue
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())

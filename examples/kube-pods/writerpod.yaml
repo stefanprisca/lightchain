@@ -20,39 +20,39 @@ metadata:
     klight.networkId : k8sPodNetwork
 spec:
   volumes:
-  - name: tempSto
+  - name: tempsto
     emptyDir: {}
   containers:
-  - name: lightpeer
-    image: localhost:32000/lightpeer:example
-    imagePullPolicy: Always
-    command: ["./lightpeer"]
-    args: ["-statePath=$(STATE_PATH)", "-host=0.0.0.0"]
-    resources:
-      limits:
-        cpu: 100m
-        memory: 100Mi
-      requests:
-        cpu: 50m
-        memory: 50Mi
-    env:
-      - name: LP_BLOCKREPO
-        value: "/blockRepository"
-      - name: STATE_PATH
-        value: "/usr/share/tempSto" 
-    ports:
-    - containerPort: 9081 # gRPC port.
-    volumeMounts:
-    - name: tempSto
-      mountPath: /usr/share/tempSto
+  # - name: lightpeer
+  #   image: localhost:32000/lightpeer:example
+  #   imagePullPolicy: Always
+  #   command: ["./lightpeer"]
+  #   args: ["-statePath=$(STATE_PATH)", "-host=0.0.0.0"]
+  #   resources:
+  #     limits:
+  #       cpu: 100m
+  #       memory: 100Mi
+  #     requests:
+  #       cpu: 50m
+  #       memory: 50Mi
+  #   env:
+  #     - name: LP_BLOCKREPO
+  #       value: "/blockRepository"
+  #     - name: STATE_PATH
+  #       value: "/usr/share/tempSto" 
+  #   ports:
+  #   - containerPort: 9081 # gRPC port.
+  #   volumeMounts:
+  #   - name: tempSto
+  #     mountPath: /usr/share/tempSto
   - name: writer
     image: debian
     volumeMounts:
-    - name: tempSto
-      mountPath: /tempSto
+    - name: tempsto
+      mountPath: /tempsto
     command: ["/bin/sh", "-c"]
     args:
       - while true; do
-          date >> /tempSto/index.html;
+          date >> /tempsto/index.html;
           sleep 1;
         done
