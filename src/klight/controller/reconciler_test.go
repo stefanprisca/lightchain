@@ -25,7 +25,13 @@ func TestReconcilerStacksIPs(t *testing.T) {
 	rtc := newReconcilerTestCase(t)
 	rtc.addPod("10.0.0.1", "networkId").
 		addPod("10.0.0.2", "networkId").
-		assertStacks(map[string][]string{"networkId": {"10.0.0.1", "10.0.0.2"}})
+		addPod("10.0.0.3", "networkId4").
+		addPod("10.0.0.4", "networkId2").
+		assertStacks(map[string][]string{
+			"networkId":  {"10.0.0.2", "10.0.0.1"},
+			"networkId4": {"10.0.0.3"},
+			"networkId2": {"10.0.0.4"},
+		})
 }
 
 type reconcilerTestCase struct {
@@ -34,7 +40,10 @@ type reconcilerTestCase struct {
 }
 
 func newReconcilerTestCase(t *testing.T) reconcilerTestCase {
-	return reconcilerTestCase{&networkReconciler{}, t}
+	return reconcilerTestCase{
+		nr: &networkReconciler{map[string]ipStack{}},
+		t:  t,
+	}
 }
 
 func (rtc reconcilerTestCase) addPod(ip, networkId string) reconcilerTestCase {
@@ -48,5 +57,19 @@ func (rtc reconcilerTestCase) addPod(ip, networkId string) reconcilerTestCase {
 }
 
 func (rtc reconcilerTestCase) assertStacks(expectedStacks map[string][]string) {
-	rtc.t.Log("asserting tests...")
+	for netId, expectedStack := range expectedStacks {
+		actualStack := rtc.nr.stacks[netId].asList()
+
+		if len(expectedStack) != len(actualStack) {
+			rtc.t.Fatalf("expected stack for network < %s > does not match actual stack: \n expected: %v \n actual: %v ",
+				netId, expectedStack, actualStack)
+		}
+
+		for i, ip := range expectedStack {
+			if actualStack[i] != ip {
+				rtc.t.Fatalf("expected stack for network < %s >  does not match actual stack: \n expected: %v \n actual: %v ",
+					netId, expectedStack, actualStack)
+			}
+		}
+	}
 }

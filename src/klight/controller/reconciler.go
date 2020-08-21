@@ -15,6 +15,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"k8s.io/klog"
@@ -22,7 +23,40 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-type networkReconciler struct{}
+type ipStack struct {
+	ips []string
+}
+
+func (is ipStack) pushIp(ip string) ipStack {
+	is.ips = append([]string{ip}, is.ips...)
+	return is
+}
+
+func (is ipStack) popIp() (string, ipStack, error) {
+	if len(is.ips) == 0 {
+		return "", is, fmt.Errorf("stack is empty")
+	}
+
+	ip := is.ips[0]
+	is.ips = is.ips[1:]
+	return ip, is, nil
+}
+
+func (is ipStack) lookUp() (string, error) {
+	if len(is.ips) == 0 {
+		return "", fmt.Errorf("stack is empty")
+	}
+
+	return is.ips[0], nil
+}
+
+func (is ipStack) asList() []string {
+	return is.ips
+}
+
+type networkReconciler struct {
+	stacks map[string]ipStack
+}
 
 // Reconciling should be as stateless as possible, as k8s pods are volatile and there are no guarantees of what's up and what's down. But at the same time it needs to keep track of contact pods for each network id, such that new pods can join the network if it already exists.
 // This can be done by maintaining an IP stack for each network id, with the newest known pod at the top of the stack. When a new pod (podA) wants to join the network, reconciliation works as follows:
@@ -46,4 +80,7 @@ func (nr *networkReconciler) reconcileLightNetwork(pod *v1.Pod) {
 	}
 
 	log.Println(networkId)
+
+	newStack := nr.stacks[networkId].pushIp(podIp)
+	nr.stacks[networkId] = newStack
 }
