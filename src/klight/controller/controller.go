@@ -41,6 +41,7 @@ type Controller struct {
 	indexer  cache.Indexer
 	queue    workqueue.RateLimitingInterface
 	informer cache.Controller
+	nr       *networkReconciler
 }
 
 func NewController(queue workqueue.RateLimitingInterface, indexer cache.Indexer, informer cache.Controller) *Controller {
@@ -48,6 +49,7 @@ func NewController(queue workqueue.RateLimitingInterface, indexer cache.Indexer,
 		informer: informer,
 		indexer:  indexer,
 		queue:    queue,
+		nr:       &networkReconciler{},
 	}
 }
 
@@ -88,7 +90,7 @@ func (c *Controller) syncToStdout(key string) error {
 		fmt.Printf("Sync/Add/Update for Pod %s\n", obj.(*v1.Pod).GetName())
 
 		// klight logic: reconcile networks
-		reconcileLightNetwork(obj.(*v1.Pod))
+		c.nr.reconcileLightNetwork(obj.(*v1.Pod))
 	}
 	return nil
 }
