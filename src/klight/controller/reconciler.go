@@ -26,39 +26,39 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-type ipStack struct {
-	ips []string
+type addressStack struct {
+	addresses []string
 }
 
-func (is ipStack) pushIp(ip string) ipStack {
-	is.ips = append([]string{ip}, is.ips...)
-	return is
+func (addrStack addressStack) push(addr string) addressStack {
+	addrStack.addresses = append([]string{addr}, addrStack.addresses...)
+	return addrStack
 }
 
-func (is ipStack) popIp() (string, ipStack, error) {
-	if len(is.ips) == 0 {
-		return "", is, fmt.Errorf("stack is empty")
+func (addrStack addressStack) pop() (string, addressStack, error) {
+	if len(addrStack.addresses) == 0 {
+		return "", addrStack, fmt.Errorf("stack is empty")
 	}
 
-	ip := is.ips[0]
-	is.ips = is.ips[1:]
-	return ip, is, nil
+	addr := addrStack.addresses[0]
+	addrStack.addresses = addrStack.addresses[1:]
+	return addr, addrStack, nil
 }
 
-func (is ipStack) lookUp() (string, bool) {
-	if len(is.ips) == 0 {
+func (addrStack addressStack) lookUp() (string, bool) {
+	if len(addrStack.addresses) == 0 {
 		return "", false
 	}
 
-	return is.ips[0], true
+	return addrStack.addresses[0], true
 }
 
-func (is ipStack) asList() []string {
-	return is.ips
+func (addrStack addressStack) asList() []string {
+	return addrStack.addresses
 }
 
 type networkReconciler struct {
-	stacks map[string]ipStack
+	stacks map[string]addressStack
 }
 
 // Reconciling should be as stateless as possible, as k8s pods are volatile and there are no guarantees of what's up and what's down. But at the same time it needs to keep track of contact pods for each network id, such that new pods can join the network if it already exists.
@@ -78,16 +78,28 @@ func (nr *networkReconciler) reconcileLightNetwork(pod v1.Pod) error {
 	}
 
 	podAddress := getPodAddress(pod)
-	existingAddress, ok := nr.stacks[networkId].lookUp()
-	if ok {
-		err := joinPodToNetwork(podAddress, existingAddress)
-		if err != nil {
-			return err
+	addressStack := nr.stacks[networkId]
+	for {
+		existingAddress, ok := addressStack.lookUp()
+		if !ok {
+			break
 		}
+
+		if existingAddress == podAddress {
+			_, addressStack, _ = addressStack.pop()
+			continue
+		}
+
+		err := joinPodToNetwork(podAddress, existingAddress)
+		if err == nil {
+			break
+		}
+		log.Println(err)
+		_, addressStack, _ = addressStack.pop()
 	}
 
-	newStack := nr.stacks[networkId].pushIp(podAddress)
-	nr.stacks[networkId] = newStack
+	addressStack = addressStack.push(podAddress)
+	nr.stacks[networkId] = addressStack
 
 	return nil
 }

@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,32 +32,119 @@ import (
 	lpb "github.com/stefanprisca/lightchain/src/api/lightpeer"
 )
 
-func TestReconcilerStacksIPs(t *testing.T) {
-	rtc := newReconcilerTestCase(t)
-	defer rtc.stop()
-
-	rtc.addPod(8081, "networkId").
-		addPod(8082, "networkId").
-		addPod(8083, "networkId4").
-		addPod(8084, "networkId2").
-		assertReconcilerStacks(map[string][]string{
-			"networkId":  {":8082", ":8081"},
-			"networkId4": {":8083"},
-			"networkId2": {":8084"},
-		})
-}
-
-func TestReconcilerConnectsPods(t *testing.T) {
+func TestReconcilerBuildsNetworks(t *testing.T) {
 	rtc := newReconcilerTestCase(t)
 	defer rtc.stop()
 
 	rtc = rtc.addPod(8081, "networkId").
-		addPod(8082, "networkId")
-	time.Sleep(time.Second)
+		addPod(8082, "networkId").
+		addPod(8083, "networkId4").
+		addPod(8084, "networkId2")
 
-	rtc.assertPodsAreConnected(map[string][]string{
-		"networkId": {":8082", ":8081"},
-	})
+	expectedStacks := map[string][]int32{
+		"networkId":  {8082, 8081},
+		"networkId4": {8083},
+		"networkId2": {8084},
+	}
+
+	rtc.assertReconcilerStacks(expectedStacks)
+
+	time.Sleep(2 * time.Second)
+	expectedNetworks := map[int32][]int32{
+		8082: {8082, 8081},
+		8081: {8082, 8081},
+		8083: {8083},
+		8084: {8084},
+	}
+
+	rtc.assertPodConnections(expectedNetworks)
+}
+
+func TestReconcilerMaintainsStacksAfterPodFailure(t *testing.T) {
+	rtc := newReconcilerTestCase(t)
+	defer rtc.stop()
+
+	rtc = rtc.addPod(8081, "networkId").
+		addPod(8082, "networkId").
+		stopPod(8082).
+		addPod(8083, "networkId")
+
+	expectedStacks := map[string][]int32{
+		"networkId": {8083, 8081},
+	}
+
+	rtc.assertReconcilerStacks(expectedStacks)
+
+	time.Sleep(2 * time.Second)
+	expectedNetworks := map[int32][]int32{
+		8081: {8083, 8081},
+		8083: {8083, 8081},
+	}
+
+	rtc.assertPodConnections(expectedNetworks)
+}
+
+func TestReconcilerMaintainsStacksAfterPodRejoins(t *testing.T) {
+	rtc := newReconcilerTestCase(t)
+	defer rtc.stop()
+
+	rtc = rtc.addPod(8081, "networkId").
+		addPod(8082, "networkId").
+		stopPod(8082).
+		addPod(8083, "networkId").
+		addPod(8082, "networkId")
+
+	expectedStacks := map[string][]int32{
+		"networkId": {8082, 8083, 8081},
+	}
+
+	rtc.assertReconcilerStacks(expectedStacks)
+
+	time.Sleep(2 * time.Second)
+	expectedNetworks := map[int32][]int32{
+		8081: {8083, 8081},
+		8083: {8082, 8083, 8081},
+		8082: {8083, 8082},
+	}
+
+	rtc.assertPodConnections(expectedNetworks)
+}
+
+func TestReconcilerMaintainsStacksAfterMultiplePodRestarts(t *testing.T) {
+	rtc := newReconcilerTestCase(t)
+	defer rtc.stop()
+
+	rtc = rtc.addPod(8081, "networkId").
+		addPod(8082, "networkId").
+		stopPod(8082).
+		addPod(8083, "networkId").
+		addPod(8084, "networkId2").
+		addPod(8085, "networkId2").
+		addPod(8082, "networkId").
+		stopPod(8084).
+		addPod(8084, "networkId2").
+		stopPod(8084).
+		addPod(8084, "networkId2").
+		stopPod(8084).
+		addPod(8084, "networkId2")
+
+	expectedStacks := map[string][]int32{
+		"networkId":  {8082, 8083, 8081},
+		"networkId2": {8084, 8085, 8084},
+	}
+
+	rtc.assertReconcilerStacks(expectedStacks)
+
+	time.Sleep(2 * time.Second)
+	expectedNetworks := map[int32][]int32{
+		8081: {8083, 8082, 8081},
+		8083: {8082, 8083, 8081},
+		8082: {8083, 8082},
+		8084: {8084, 8085},
+		8085: {8084, 8085},
+	}
+
+	rtc.assertPodConnections(expectedNetworks)
 }
 
 type klightTestPod struct {
@@ -65,36 +154,28 @@ type klightTestPod struct {
 	lpMeta    lpb.PeerInfo
 	lpNetwork []string
 	server    *grpc.Server
+
+	rtc *reconcilerTestCase
 }
 
 func (ktp *klightTestPod) JoinNetwork(ctx context.Context, joinReq *lpb.JoinRequest) (*lpb.JoinResponse, error) {
 
-	log.Println("@Join: received req to join network")
-	conn, err := grpc.Dial(joinReq.Address, grpc.WithInsecure())
+	log.Println("@Join: received req to join network", joinReq.Address)
 
-	if err != nil {
-		return &lpb.JoinResponse{}, err
+	i, _ := strconv.ParseInt(strings.Split(joinReq.Address, ":")[1], 0, 32)
+	otherPort := int32(i)
+	connectTo, ok := ktp.rtc.testPods[otherPort]
+	if !ok {
+		return &lpb.JoinResponse{}, fmt.Errorf("peer unavailable")
 	}
-	defer func() { _ = conn.Close() }()
 
-	client := lpb.NewLightpeerClient(conn)
-	pi := &lpb.PeerInfo{}
-	*pi = ktp.lpMeta
-	_, err = client.ConnectNewPeer(context.Background(), &lpb.ConnectRequest{Peer: pi})
-	if err != nil {
-		return &lpb.JoinResponse{}, err
-	}
+	connectTo.lpNetwork = append(connectTo.lpNetwork, ktp.lpMeta.Address)
+
 	log.Println("@Join: Successfuly sent request to connect peer")
 
 	ktp.lpNetwork = append(ktp.lpNetwork, joinReq.Address)
 
 	return &lpb.JoinResponse{}, nil
-}
-
-func (ktp *klightTestPod) ConnectNewPeer(cReq *lpb.ConnectRequest, stream lpb.Lightpeer_ConnectNewPeerServer) error {
-	log.Println("@Connect new peer: received req to connect peer")
-	ktp.lpNetwork = append(ktp.lpNetwork, cReq.Peer.Address)
-	return nil
 }
 
 func (ktp *klightTestPod) startGrpc() error {
@@ -119,14 +200,14 @@ func (ktp *klightTestPod) startGrpc() error {
 type reconcilerTestCase struct {
 	nr       *networkReconciler
 	t        *testing.T
-	testPods map[string][]*klightTestPod
+	testPods map[int32]*klightTestPod
 }
 
 func newReconcilerTestCase(t *testing.T) *reconcilerTestCase {
 	return &reconcilerTestCase{
-		nr:       &networkReconciler{map[string]ipStack{}},
+		nr:       &networkReconciler{map[string]addressStack{}},
 		t:        t,
-		testPods: map[string][]*klightTestPod{},
+		testPods: map[int32]*klightTestPod{},
 	}
 }
 
@@ -143,16 +224,26 @@ func (rtc *reconcilerTestCase) addPod(port int32, networkId string) *reconcilerT
 		pod:       pod,
 		lpMeta:    lpb.PeerInfo{Address: podAddress},
 		lpNetwork: []string{podAddress},
+		rtc:       rtc,
 	}
 
 	err := klpTestPod.startGrpc()
 	rtc.handleError(err)
 
-	rtc.testPods[networkId] = append(rtc.testPods[networkId], klpTestPod)
+	rtc.testPods[port] = klpTestPod
 
 	err = rtc.nr.reconcileLightNetwork(pod)
 	rtc.handleError(err)
 
+	return rtc
+}
+
+func (rtc *reconcilerTestCase) stopPod(port int32) *reconcilerTestCase {
+	podToRemove := rtc.testPods[port]
+	podToRemove.server.Stop()
+	delete(rtc.testPods, port)
+
+	time.Sleep(2 * time.Second)
 	return rtc
 }
 
@@ -164,31 +255,38 @@ func (rtc *reconcilerTestCase) handleError(err error) {
 }
 
 func (rtc *reconcilerTestCase) stop() {
-	for _, ktps := range rtc.testPods {
-		for _, ktp := range ktps {
-			ktp.server.Stop()
-		}
+	for _, ktp := range rtc.testPods {
+		ktp.server.Stop()
 	}
 }
 
-func (rtc *reconcilerTestCase) assertReconcilerStacks(expectedNetworks map[string][]string) {
-	for netId, expectedStack := range expectedNetworks {
-		actualStack := rtc.nr.stacks[netId].asList()
+func (rtc *reconcilerTestCase) assertReconcilerStacks(expectedNetworks map[string][]int32) *reconcilerTestCase {
+	for netID, expectedStack := range expectedNetworks {
+		expectedAddresses := []string{}
+		for _, port := range expectedStack {
+			expectedAddresses = append(expectedAddresses, fmt.Sprintf(":%d", port))
+		}
 
-		assert.Len(rtc.t, actualStack, len(expectedStack))
-		assert.Subset(rtc.t, expectedStack, actualStack)
+		actualStack := rtc.nr.stacks[netID].asList()
+
+		assert.Len(rtc.t, actualStack, len(expectedAddresses))
+		assert.Subset(rtc.t, actualStack, expectedAddresses)
 	}
+	return rtc
 }
 
-func (rtc *reconcilerTestCase) assertPodsAreConnected(expectedNetworks map[string][]string) {
-	for id, expectedNetwork := range expectedNetworks {
-		podsInNetwork := rtc.testPods[id]
-
-		for _, tp := range podsInNetwork {
-			actualNetwork := tp.lpNetwork
-			log.Println(actualNetwork)
-			assert.Len(rtc.t, actualNetwork, len(expectedNetwork))
-			assert.Subset(rtc.t, expectedNetwork, actualNetwork)
+// Asserts that the pods have the existing connections. Does not guarantee that there are no other connections, i.e. the expected connections expected to be a subset of the actual connections, but not vice versa.
+// This is because the mock peers used for these tests will not update their networks when peers fail. So we mainly test that the reconciler creates connections. It is not however resposible for deleteing the connections when peers are unavailable.
+func (rtc *reconcilerTestCase) assertPodConnections(expectedNetworks map[int32][]int32) *reconcilerTestCase {
+	for podPort, expectedNetwork := range expectedNetworks {
+		expectedAddresses := []string{}
+		for _, port := range expectedNetwork {
+			expectedAddresses = append(expectedAddresses, fmt.Sprintf(":%d", port))
 		}
+		actualNetwork := rtc.testPods[podPort].lpNetwork
+		log.Println(actualNetwork)
+
+		assert.Subset(rtc.t, actualNetwork, expectedAddresses)
 	}
+	return rtc
 }
