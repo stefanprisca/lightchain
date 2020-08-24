@@ -35,7 +35,10 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-const klightNetworkLabel string = "klight.networkId"
+const (
+	klightNetworkLabel string = "klight.networkId"
+	klightPodPort      string = "klightPort"
+)
 
 type Controller struct {
 	indexer  cache.Indexer

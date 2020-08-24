@@ -15,11 +15,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
+	"google.golang.org/grpc"
 	"k8s.io/klog"
 
+	lpb "github.com/stefanprisca/lightchain/src/api/lightpeer"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -42,12 +45,12 @@ func (is ipStack) popIp() (string, ipStack, error) {
 	return ip, is, nil
 }
 
-func (is ipStack) lookUp() (string, error) {
+func (is ipStack) lookUp() (string, bool) {
 	if len(is.ips) == 0 {
-		return "", fmt.Errorf("stack is empty")
+		return "", false
 	}
 
-	return is.ips[0], nil
+	return is.ips[0], true
 }
 
 func (is ipStack) asList() []string {
@@ -67,20 +70,59 @@ type networkReconciler struct {
 
 // This method should ensure that all known pods for a network are recorded, and if there is one alive on that network, then new pods will be able to join it. And since it is poping the existing nodes in case of unsuccessful connections, the stack should be pretty clean (although there can still be leftovers at the bottom which need cleaning).
 
-func (nr *networkReconciler) reconcileLightNetwork(pod v1.Pod) {
-
-	log.Println(pod.Status.Phase)
-
-	podIp := pod.Status.PodIP
-	log.Println(podIp)
+func (nr *networkReconciler) reconcileLightNetwork(pod v1.Pod) error {
 
 	networkId, ok := pod.Labels[klightNetworkLabel]
 	if !ok {
 		klog.Fatal("pod does not have klight network id")
 	}
 
-	log.Println(networkId)
+	podAddress := getPodAddress(pod)
+	existingAddress, ok := nr.stacks[networkId].lookUp()
+	if ok {
+		err := joinPodToNetwork(podAddress, existingAddress)
+		if err != nil {
+			return err
+		}
+	}
 
-	newStack := nr.stacks[networkId].pushIp(podIp)
+	newStack := nr.stacks[networkId].pushIp(podAddress)
 	nr.stacks[networkId] = newStack
+
+	return nil
+}
+
+func getPodAddress(pod v1.Pod) string {
+	podIp := pod.Status.PodIP
+	var podLPPort int32 = 9081
+	for _, container := range pod.Spec.Containers {
+		for _, port := range container.Ports {
+			if port.Name != klightPodPort {
+				continue
+			}
+			podLPPort = port.ContainerPort
+		}
+	}
+
+	return fmt.Sprintf("%s:%d", podIp, podLPPort)
+}
+
+func joinPodToNetwork(podAddress, networkContactAddress string) error {
+	log.Println("joining pods to network", podAddress, networkContactAddress)
+
+	conn, err := grpc.Dial(podAddress, grpc.WithInsecure())
+	if err != nil {
+		return fmt.Errorf("did not connect: %s", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	client := lpb.NewLightpeerClient(conn)
+	joinReq := &lpb.JoinRequest{
+		Address: networkContactAddress,
+	}
+
+	_, err = client.JoinNetwork(context.Background(), joinReq)
+
+	log.Println("sent the request to join network")
+	return err
 }

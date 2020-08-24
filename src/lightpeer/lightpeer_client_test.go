@@ -268,7 +268,7 @@ func (tn *testNetwork) connect(port, toPort int) *testNetwork {
 	connectCtx, span := global.Tracer(traceID).Start(ctx, traceID)
 	defer span.End()
 
-	from := tn.clients[port]
+	from := tc
 	to := tn.clients[toPort]
 
 	joinReq := &pb.JoinRequest{
