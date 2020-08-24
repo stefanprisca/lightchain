@@ -67,7 +67,7 @@ type networkReconciler struct {
 
 // This method should ensure that all known pods for a network are recorded, and if there is one alive on that network, then new pods will be able to join it. And since it is poping the existing nodes in case of unsuccessful connections, the stack should be pretty clean (although there can still be leftovers at the bottom which need cleaning).
 
-func (nr *networkReconciler) reconcileLightNetwork(pod *v1.Pod) {
+func (nr *networkReconciler) reconcileLightNetwork(pod v1.Pod) {
 
 	log.Println(pod.Status.Phase)
 

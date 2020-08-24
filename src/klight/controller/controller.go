@@ -90,7 +90,7 @@ func (c *Controller) syncToStdout(key string) error {
 		fmt.Printf("Sync/Add/Update for Pod %s\n", obj.(*v1.Pod).GetName())
 
 		// klight logic: reconcile networks
-		c.nr.reconcileLightNetwork(obj.(*v1.Pod))
+		c.nr.reconcileLightNetwork(*(obj.(*v1.Pod)))
 	}
 	return nil
 }
