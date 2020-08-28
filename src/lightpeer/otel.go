@@ -17,12 +17,12 @@ package main
 import (
 	"log"
 
-	"github.com/open-telemetry/opentelemetry-collector/translator/conventions"
 	"go.opentelemetry.io/otel/api/global"
-	"go.opentelemetry.io/otel/api/kv"
 	apitrace "go.opentelemetry.io/otel/api/trace"
 	"go.opentelemetry.io/otel/exporters/otlp"
+	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/semconv"
 	"google.golang.org/grpc"
 )
 
@@ -42,12 +42,13 @@ func initOtel(otlpBackend, serviceName string) func() error {
 
 	tp, err := sdktrace.NewProvider(
 		sdktrace.WithConfig(sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
-		sdktrace.WithResourceAttributes(
-			// the service name used to display traces in Jaeger
-			kv.Key(conventions.AttributeServiceName).String(serviceName),
-		),
+		sdktrace.WithResource(resource.New(
+			// the service name used to display traces in backends
+			semconv.ServiceNameKey.String(serviceName),
+		)),
 		sdktrace.WithSyncer(otlpExp),
 	)
+
 	if err != nil {
 		log.Fatalf("error creating trace provider: %v\n", err)
 	}

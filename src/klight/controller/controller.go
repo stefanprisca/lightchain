@@ -52,7 +52,9 @@ func NewController(queue workqueue.RateLimitingInterface, indexer cache.Indexer,
 		informer: informer,
 		indexer:  indexer,
 		queue:    queue,
-		nr:       &networkReconciler{},
+		nr: &networkReconciler{
+			stacks: map[string]addressStack{},
+		},
 	}
 }
 

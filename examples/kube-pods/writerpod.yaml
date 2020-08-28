@@ -27,7 +27,7 @@ spec:
     image: localhost:32000/lightpeer:0.0.1-k8s
     imagePullPolicy: Always
     command: ["./lightpeer"]
-    args: ["-repo=$(LP_BLOCKREPO)", "-host=0.0.0.0"] #"-statePath=$(STATE_PATH)", 
+    args: ["-repo=$(LP_BLOCKREPO)", "-host=0.0.0.0", "-otlp=otel-collector.observability.svc.cluster.local", "-v"] #"-statePath=$(STATE_PATH)", 
     resources:
       limits:
         cpu: 100m

@@ -80,6 +80,7 @@ func (nr *networkReconciler) reconcileLightNetwork(pod v1.Pod) error {
 	podAddress := getPodAddress(pod)
 	addressStack := nr.stacks[networkId]
 	for {
+		log.Printf("reconciling net for pod %s, with stack %v", podAddress, addressStack)
 		existingAddress, ok := addressStack.lookUp()
 		if !ok {
 			break

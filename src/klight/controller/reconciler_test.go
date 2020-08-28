@@ -171,8 +171,6 @@ func (ktp *klightTestPod) JoinNetwork(ctx context.Context, joinReq *lpb.JoinRequ
 
 	connectTo.lpNetwork = append(connectTo.lpNetwork, ktp.lpMeta.Address)
 
-	log.Println("@Join: Successfuly sent request to connect peer")
-
 	ktp.lpNetwork = append(ktp.lpNetwork, joinReq.Address)
 
 	return &lpb.JoinResponse{}, nil

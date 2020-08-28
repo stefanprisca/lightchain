@@ -27,8 +27,8 @@ import (
 	"github.com/google/uuid"
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
 	"github.com/stretchr/testify/require"
+	grpctrace "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc"
 	"go.opentelemetry.io/otel/api/global"
-	"go.opentelemetry.io/otel/plugin/grpctrace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
