@@ -43,18 +43,34 @@ func main() {
 		otelFinalizer := initOtel(*otlpBackend, ServiceName)
 		defer otelFinalizer()
 	}
-	listenerAddress := fmt.Sprintf(":%d", *port)
+	listenerAddress := fmt.Sprintf("%s:%d", *host, *port)
 	lis, err := net.Listen("tcp", listenerAddress)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	grpcServer, _, nhc := newLPGrpcServer(*host, *port, *blockRepo)
+	localIp, err := getLocalIP()
+	if err != nil {
+		log.Fatalf("failed to get ip: %v", err)
+	}
+
+	grpcServer, _, nhc := newLPGrpcServer(localIp, *port, *blockRepo)
 	defer nhc.stopPeerHealthCheck()
-	log.Println("Start serving gRPC connections...")
+	log.Println("Start serving gRPC connections @ ", listenerAddress)
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
+}
+
+func getLocalIP() (string, error) {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return "", err
+	}
+
+	defer conn.Close()
+	localAddr := conn.LocalAddr().(*net.UDPAddr).IP
+	return fmt.Sprintf("%v", localAddr), nil
 }
 
 func newLPGrpcServer(host string, port int, blockRepo string) (*grpc.Server, *lightpeer, networkHealthChecker) {

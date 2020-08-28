@@ -23,6 +23,7 @@ import (
 	"k8s.io/klog"
 
 	lpb "github.com/stefanprisca/lightchain/src/api/lightpeer"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -72,12 +73,24 @@ type networkReconciler struct {
 
 func (nr *networkReconciler) reconcileLightNetwork(pod v1.Pod) error {
 
+	log.Println("reconcile request for pod in phase ", pod.Status.Phase)
+	if pod.Status.Phase != v1.PodRunning {
+		log.Println("Pod is not running, exiting....")
+		return nil
+	}
+
 	networkId, ok := pod.Labels[klightNetworkLabel]
 	if !ok {
 		klog.Fatal("pod does not have klight network id")
 	}
 
 	podAddress := getPodAddress(pod)
+
+	if !isAlive(podAddress) {
+		log.Println("Pod is not running, exiting....")
+		return nil
+	}
+
 	addressStack := nr.stacks[networkId]
 	for {
 		log.Printf("reconciling net for pod %s, with stack %v", podAddress, addressStack)
@@ -118,6 +131,23 @@ func getPodAddress(pod v1.Pod) string {
 	}
 
 	return fmt.Sprintf("%s:%d", podIp, podLPPort)
+}
+
+func isAlive(podAddress string) bool {
+	conn, err := grpc.Dial(podAddress, grpc.WithInsecure())
+	if err != nil {
+		return false
+	}
+	defer func() { _ = conn.Close() }()
+
+	// Send a healthcheck first to see if the peer is alive
+
+	client := healthpb.NewHealthClient(conn)
+	resp, err := client.Check(context.Background(), &healthpb.HealthCheckRequest{})
+	if err != nil || resp.Status != healthpb.HealthCheckResponse_SERVING {
+		return false
+	}
+	return true
 }
 
 func joinPodToNetwork(podAddress, networkContactAddress string) error {

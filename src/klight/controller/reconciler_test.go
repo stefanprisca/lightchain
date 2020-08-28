@@ -30,6 +30,8 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	lpb "github.com/stefanprisca/lightchain/src/api/lightpeer"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func TestReconcilerBuildsNetworks(t *testing.T) {
@@ -149,6 +151,7 @@ func TestReconcilerMaintainsStacksAfterMultiplePodRestarts(t *testing.T) {
 
 type klightTestPod struct {
 	lpb.UnimplementedLightpeerServer
+	health.Server
 
 	pod       v1.Pod
 	lpMeta    lpb.PeerInfo
@@ -176,6 +179,13 @@ func (ktp *klightTestPod) JoinNetwork(ctx context.Context, joinReq *lpb.JoinRequ
 	return &lpb.JoinResponse{}, nil
 }
 
+// Check implements `service Health`.
+func (ktp *klightTestPod) Check(ctx context.Context, in *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
+	return &healthpb.HealthCheckResponse{
+		Status: healthpb.HealthCheckResponse_SERVING,
+	}, nil
+}
+
 func (ktp *klightTestPod) startGrpc() error {
 	lis, err := net.Listen("tcp", ktp.lpMeta.Address)
 	if err != nil {
@@ -184,6 +194,7 @@ func (ktp *klightTestPod) startGrpc() error {
 
 	grpcServer := grpc.NewServer()
 	lpb.RegisterLightpeerServer(grpcServer, ktp)
+	healthpb.RegisterHealthServer(grpcServer, ktp)
 
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
@@ -215,6 +226,9 @@ func (rtc *reconcilerTestCase) addPod(port int32, networkId string) *reconcilerT
 		Spec: v1.PodSpec{Containers: []v1.Container{v1.Container{
 			Ports: []v1.ContainerPort{
 				v1.ContainerPort{Name: klightPodPort, ContainerPort: port}}}}},
+		Status: v1.PodStatus{
+			Phase: v1.PodRunning,
+		},
 	}
 
 	podAddress := fmt.Sprintf(":%d", port)
@@ -239,9 +253,12 @@ func (rtc *reconcilerTestCase) addPod(port int32, networkId string) *reconcilerT
 func (rtc *reconcilerTestCase) stopPod(port int32) *reconcilerTestCase {
 	podToRemove := rtc.testPods[port]
 	podToRemove.server.Stop()
+
+	err := rtc.nr.reconcileLightNetwork(podToRemove.pod)
+	rtc.handleError(err)
+
 	delete(rtc.testPods, port)
 
-	time.Sleep(2 * time.Second)
 	return rtc
 }
 
