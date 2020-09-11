@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package server
 
 import (
 	"context"
@@ -26,6 +26,7 @@ import (
 
 	"github.com/google/uuid"
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
+	lpack "github.com/stefanprisca/lightchain/src/lightpeer"
 	"github.com/stretchr/testify/require"
 	grpctrace "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc"
 	"go.opentelemetry.io/otel/api/global"
@@ -180,6 +181,9 @@ func TestNetworkRecoversAfterPeerFailure(t *testing.T) {
 }
 
 func TestPeerSelfRecovery(t *testing.T) {
+	// not implemented yet
+	t.Skip()
+
 	tn := newTestNetwork(t) //.withOTLP(OTLPAddress, "TestThreePeerNetworkUpdatesTopology")
 	defer tn.stop()
 
@@ -221,7 +225,7 @@ func newTestNetwork(test *testing.T) *testNetwork {
 }
 
 func (tn *testNetwork) withOTLP(otlpBackend, serviceName string) *testNetwork {
-	otelFinalizer := initOtel(otlpBackend, serviceName)
+	otelFinalizer := lpack.InitOtel(otlpBackend, serviceName)
 	tn.otelFinalizer = otelFinalizer
 	return tn
 }
@@ -272,7 +276,7 @@ func (tn *testNetwork) connect(port, toPort int) *testNetwork {
 	to := tn.clients[toPort]
 
 	joinReq := &pb.JoinRequest{
-		Address: to.lp.meta.Address,
+		Address: to.lp.Meta.Address,
 	}
 	_, err := from.client.JoinNetwork(connectCtx, joinReq)
 	tn.handleError("%v", err)
@@ -305,7 +309,7 @@ func (tn *testNetwork) withNewState(port int, msg string, outState *pb.Lightbloc
 
 	newState := pb.Lightblock{
 		ID:      uuid.New().String(),
-		PrevID:  tc.lp.state.ID,
+		PrevID:  tc.lp.GetState().ID,
 		Payload: []byte(msg),
 		Type:    pb.Lightblock_CLIENT,
 	}
@@ -365,7 +369,7 @@ func (tn *testNetwork) assertExpectedMessagesFor(port int, messages ...string) *
 func (tn *testNetwork) assertNetworkTopology(orderedPorts ...int) *testNetwork {
 	expectedPIs := []pb.PeerInfo{}
 	for _, p := range orderedPorts {
-		expectedPIs = append(expectedPIs, tn.clients[p].lp.meta)
+		expectedPIs = append(expectedPIs, tn.clients[p].lp.Meta)
 	}
 
 	for _, tc := range tn.clients {
@@ -402,7 +406,7 @@ func (tn *testNetwork) stop() {
 
 type testClient struct {
 	client pb.LightpeerClient
-	lp     *lightpeer
+	lp     *lpack.Lightpeer
 	stop   func() error
 }
 
@@ -416,7 +420,7 @@ func startLPTestServer(port int) (testClient, error) {
 		return testClient{}, fmt.Errorf("failed to listen: %v", err)
 	}
 
-	grpcServer, lp, nhc := newLPGrpcServer("", port, blockRepoPath)
+	grpcServer, lp, nhc := NewLPGrpcServer("", port, blockRepoPath)
 
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
@@ -425,8 +429,8 @@ func startLPTestServer(port int) (testClient, error) {
 	}()
 
 	var conn *grpc.ClientConn
-	clientTr := global.Tracer(fmt.Sprintf("client@%s", lp.meta.Address))
-	conn, err = grpc.Dial(lp.meta.Address, grpc.WithInsecure(),
+	clientTr := global.Tracer(fmt.Sprintf("client@%s", lp.Meta.Address))
+	conn, err = grpc.Dial(lp.Meta.Address, grpc.WithInsecure(),
 		grpc.WithUnaryInterceptor(grpctrace.UnaryClientInterceptor(clientTr)),
 		grpc.WithStreamInterceptor(grpctrace.StreamClientInterceptor(clientTr)))
 	if err != nil {
@@ -441,23 +445,23 @@ func startLPTestServer(port int) (testClient, error) {
 		stop: func() error {
 			clientError := conn.Close()
 			grpcServer.Stop()
-			nhc.stopPeerHealthCheck()
+			nhc.StopPeerHealthCheck()
 			return clientError
 		}}, nil
 }
 
 func assertExpectedNetwork(expectedNetwork []pb.PeerInfo, tc testClient) error {
-	pNetwork := tc.lp.network
+	pNetwork := tc.lp.Network
 
 	if len(pNetwork) != len(expectedNetwork) {
 		return fmt.Errorf("expected %v peers, %v has %v",
-			expectedNetwork, tc.lp.meta, pNetwork)
+			expectedNetwork, tc.lp.Meta, pNetwork)
 	}
 
 	for i := 0; i < len(expectedNetwork); i++ {
 		if pNetwork[i].Address != expectedNetwork[i].Address {
 			return fmt.Errorf("%v has unexpected peer on position %d: expected %v, actual %v",
-				tc.lp.meta, i, expectedNetwork[i].Address, pNetwork[i].Address)
+				tc.lp.Meta, i, expectedNetwork[i].Address, pNetwork[i].Address)
 		}
 	}
 	return nil
@@ -468,7 +472,7 @@ func assertExpectedMessages(expectedMessages []string, tc testClient) error {
 	nOfMessages := len(expectedMessages)
 
 	ctx := getClientContext(tc)
-	traceID := fmt.Sprintf("query@client%s", tc.lp.meta.Address)
+	traceID := fmt.Sprintf("query@client%s", tc.lp.Meta.Address)
 	queryCtx, span := global.Tracer(traceID).Start(ctx, traceID)
 	defer span.End()
 
@@ -480,24 +484,24 @@ func assertExpectedMessages(expectedMessages []string, tc testClient) error {
 	for i := 0; i < nOfMessages; i++ {
 		rsp, err := queryClient.Recv()
 		if err == io.EOF {
-			return fmt.Errorf("%v: unexpected end of query stream", tc.lp.meta)
+			return fmt.Errorf("%v: unexpected end of query stream", tc.lp.Meta)
 		}
 		if err != nil {
-			return fmt.Errorf("%v.Query returned error: %v", tc.lp.meta, err)
+			return fmt.Errorf("%v.Query returned error: %v", tc.lp.Meta, err)
 		}
 
 		expectedMessage := expectedMessages[i]
 		actualMessage := string(rsp.Payload)
 		if expectedMessage != actualMessage {
 			return fmt.Errorf("got the wrong message for peer %v: expected %s, actual %s",
-				tc.lp.meta, expectedMessage, actualMessage)
+				tc.lp.Meta, expectedMessage, actualMessage)
 		}
 	}
 	return nil
 }
 
 func getClientContext(tc testClient) context.Context {
-	address := tc.lp.meta.Address
+	address := tc.lp.Meta.Address
 	clientID := fmt.Sprintf("test-client@%s", address)
 	md := metadata.Pairs(
 		"timestamp", time.Now().Format(time.StampNano),

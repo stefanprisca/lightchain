@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package lightpeer
 
 // In self-recovery mode, a failed peer should be able to regain access to the network from
 // the information stored in its persistant storage. e.g. recreate the chain from the blocks it knows about

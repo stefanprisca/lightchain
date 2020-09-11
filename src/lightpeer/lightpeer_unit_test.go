@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package lightpeer
 
 import (
 	"context"
@@ -28,9 +28,9 @@ import (
 )
 
 func TestPersist(t *testing.T) {
-	lp := &lightpeer{
-		storagePath: "./testdata",
-		tr:          global.Tracer("test"),
+	lp := &Lightpeer{
+		StoragePath: "./testdata",
+		Tracer:      global.Tracer("test"),
 	}
 
 	ctxt := context.Background()
@@ -199,7 +199,7 @@ func TestConnectReturnsNetworkTopology(t *testing.T) {
 }
 
 func initTestOtel() {
-	stdOutExp, err := stdout.NewExporter(stdout.Options{PrettyPrint: true})
+	stdOutExp, err := stdout.NewExporter()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -214,14 +214,14 @@ func initTestOtel() {
 	global.SetTraceProvider(tp)
 }
 
-func initPeerFromBlocks(name string, messages []string, verbose bool) (*lightpeer, error) {
+func initPeerFromBlocks(name string, messages []string, verbose bool) (*Lightpeer, error) {
 	if verbose {
 		initTestOtel()
 	}
-	lp := &lightpeer{
-		storagePath: "./testdata",
-		tr:          global.Tracer("test"),
-		network: []pb.PeerInfo{
+	lp := &Lightpeer{
+		StoragePath: "./testdata",
+		Tracer:      global.Tracer("test"),
+		Network: []pb.PeerInfo{
 			pb.PeerInfo{Name: name},
 		},
 	}

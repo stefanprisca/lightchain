@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package lightpeer
 
 import (
 	"context"
@@ -31,25 +31,25 @@ const (
 	nhcStopped = 2
 )
 
-type networkHealthChecker struct {
-	lp     *lightpeer
+type NetworkHealthChecker struct {
+	Lp     *Lightpeer
 	status int
 }
 
-func (nhc *networkHealthChecker) startPeerHealthCheck() {
+func (nhc *NetworkHealthChecker) StartPeerHealthCheck() {
 	nhc.status = nhcRunning
-	lp := nhc.lp
+	lp := nhc.Lp
 	go func() {
 		for nhc.status == nhcRunning {
 			ctx := context.Background()
-			nhcCtx, span := lp.tr.Start(ctx, fmt.Sprintf("@%s - network healthcheck", lp.meta.Address))
+			nhcCtx, span := lp.Tracer.Start(ctx, fmt.Sprintf("@%s - Network healthcheck", lp.Meta.Address))
 
-			oldNetwork := lp.network
+			oldNetwork := lp.Network
 			newNetwork := []pb.PeerInfo{}
 
 			for _, peer := range oldNetwork {
 
-				if peer.Address == lp.meta.Address {
+				if peer.Address == lp.Meta.Address {
 					newNetwork = append(newNetwork, peer)
 				} else if isAlive(nhcCtx, peer) {
 					newNetwork = append(newNetwork, peer)
@@ -57,10 +57,10 @@ func (nhc *networkHealthChecker) startPeerHealthCheck() {
 			}
 
 			if len(newNetwork) != len(oldNetwork) {
-				lp.network = newNetwork
+				lp.Network = newNetwork
 				err := lp.updateNetwork(nhcCtx, newNetwork)
 				if err != nil {
-					lp.network = oldNetwork
+					lp.Network = oldNetwork
 				}
 			}
 			span.End()
@@ -90,6 +90,6 @@ func isAlive(nhcCtx context.Context, peer pb.PeerInfo) bool {
 	return true
 }
 
-func (nhc *networkHealthChecker) stopPeerHealthCheck() {
+func (nhc *NetworkHealthChecker) StopPeerHealthCheck() {
 	nhc.status = nhcStopped
 }

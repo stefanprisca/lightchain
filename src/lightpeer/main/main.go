@@ -20,18 +20,14 @@ import (
 	"log"
 	"net"
 
-	"google.golang.org/grpc"
-
-	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
-	grpctrace "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc"
-	"go.opentelemetry.io/otel/api/global"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	lpack "github.com/stefanprisca/lightchain/src/lightpeer"
+	lpserver "github.com/stefanprisca/lightchain/src/lightpeer/server"
 )
 
 func main() {
 	var verbose = flag.Bool("v", false, "runs verbose - gathering traces with otel")
 	var blockRepo = flag.String("repo", "testdata", "repo for storing the generated blocks")
-	var otlpBackend = flag.String("otlp", OTLPAddress, "backend address for otlp traces and metrics")
+	var otlpBackend = flag.String("otlp", lpack.OTLPAddress, "backend address for otlp traces and metrics")
 	var host = flag.String("host", "", "the host to listen to")
 	var port = flag.Int("port", 9081, "the port")
 	flag.Parse()
@@ -40,7 +36,7 @@ func main() {
 		*verbose, *blockRepo, *otlpBackend)
 
 	if *verbose {
-		otelFinalizer := initOtel(*otlpBackend, ServiceName)
+		otelFinalizer := lpack.InitOtel(*otlpBackend, lpack.ServiceName)
 		defer otelFinalizer()
 	}
 	listenerAddress := fmt.Sprintf("%s:%d", *host, *port)
@@ -54,8 +50,8 @@ func main() {
 		log.Fatalf("failed to get ip: %v", err)
 	}
 
-	grpcServer, _, nhc := newLPGrpcServer(localIp, *port, *blockRepo)
-	defer nhc.stopPeerHealthCheck()
+	grpcServer, _, nhc := lpserver.NewLPGrpcServer(localIp, *port, *blockRepo)
+	defer nhc.StopPeerHealthCheck()
 	log.Println("Start serving gRPC connections @ ", listenerAddress)
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
@@ -71,28 +67,4 @@ func getLocalIP() (string, error) {
 	defer conn.Close()
 	localAddr := conn.LocalAddr().(*net.UDPAddr).IP
 	return fmt.Sprintf("%v", localAddr), nil
-}
-
-func newLPGrpcServer(host string, port int, blockRepo string) (*grpc.Server, *lightpeer, networkHealthChecker) {
-	peerAddress := fmt.Sprintf("%s:%d", host, port)
-	tr := global.Tracer(fmt.Sprintf("%s-server@%s", ServiceName, peerAddress))
-	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(grpctrace.UnaryServerInterceptor(tr)),
-		grpc.StreamInterceptor(grpctrace.StreamServerInterceptor(tr)))
-
-	meta := pb.PeerInfo{Address: peerAddress}
-
-	lp := &lightpeer{
-		tr:          tr,
-		storagePath: blockRepo,
-		meta:        meta,
-		network:     []pb.PeerInfo{meta},
-	}
-
-	pb.RegisterLightpeerServer(grpcServer, lp)
-	healthpb.RegisterHealthServer(grpcServer, lp)
-
-	nhc := networkHealthChecker{lp: lp}
-	nhc.startPeerHealthCheck()
-	return grpcServer, lp, nhc
 }

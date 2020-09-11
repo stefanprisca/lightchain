@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package lightpeer
 
 import (
 	"log"
@@ -31,7 +31,7 @@ const (
 	OTLPAddress = "localhost:30080"
 )
 
-func initOtel(otlpBackend, serviceName string) func() error {
+func InitOtel(otlpBackend, serviceName string) func() error {
 
 	otlpExp, err := otlp.NewExporter(otlp.WithInsecure(),
 		otlp.WithAddress(otlpBackend),

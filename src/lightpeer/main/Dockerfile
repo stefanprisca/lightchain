@@ -23,7 +23,7 @@ COPY . .
 # Download all the dependencies
 RUN go get -d -v ./...
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o bin/lightpeer ./src/lightpeer/
+RUN CGO_ENABLED=0 GOOS=linux go build -o bin/lightpeer ./main/
 
 FROM alpine:latest
 
