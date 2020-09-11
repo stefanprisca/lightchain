@@ -20,8 +20,8 @@ import (
 	"log"
 	"net"
 
-	lpack "github.com/stefanprisca/lightchain/src/lightpeer"
-	lpserver "github.com/stefanprisca/lightchain/src/lightpeer/server"
+	lpack "github.com/stefanprisca/lightchain/lightpeer"
+	lpserver "github.com/stefanprisca/lightchain/lightpeer/server"
 )
 
 func main() {

@@ -5,8 +5,8 @@ import (
 
 	"google.golang.org/grpc"
 
+	lpack "github.com/stefanprisca/lightchain/lightpeer"
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
-	lpack "github.com/stefanprisca/lightchain/src/lightpeer"
 	grpctrace "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc"
 	"go.opentelemetry.io/otel/api/global"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
