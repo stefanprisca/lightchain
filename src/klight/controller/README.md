@@ -10,6 +10,17 @@ The klight (k8s lightchain) controller is responsible for:
 
 There is no publicly available image for the controller, so it needs to be built from scratch. This can be done by building the Docker image via the provided `/Dockerfile`, pushing it to a repository and using the `/k8s/controller.yaml` to deploy the klight controller.
 
+Here is an example of building the docker image and deploying it to a local microk8s cluster:
+
+```bash
+# pwd: /src/klight/controller
+
+docker build -t localhost:32000/klight.controller:v0.1.0-k8s .
+docker push localhost:32000/klight.controller:v0.1.0-k8s
+
+k apply -f k8s/controller.yaml
+```
+
 # ensuring pod access
 
 As mentioned, the controller looks for pods with the `klight.networkId`. At the moment, this is only done for the default namespace. 
@@ -34,3 +45,9 @@ This can be done by maintaining an IP stack for each network id, with the newest
  2.2) Connection unsuccessful => pop the head of the stack, cleaning up down pods, and jump to step 1.
 
 This method should ensure that all known pods for a network are recorded, and if there is one alive on that network, then new pods will be able to join it. And since it is poping the existing nodes in case of unsuccessful connections, the stack should be pretty clean (although there can still be leftovers at the bottom which need cleaning).
+
+# Limitations
+
+1) The controller currently only runs on the default namespace. Future releases should make it possible to run on different namespaces.
+
+2) The reconciler will not actively clean the dead pods from stacks. This should change

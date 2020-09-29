@@ -10,7 +10,7 @@ The example includes two pods, one writing the current date, and the other readi
 In order to run, one can follow the makefile commands:
 
 1. make install-klight-operator
-2. make install-podnetwork
+2. make deploy
 
 # Deep dive
 

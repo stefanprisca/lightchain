@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: klight-controller
+  labels:
+    app: klight-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: klight-controller
+  template:
+    metadata:
+      labels:
+        app: klight-controller
+    spec:
+      containers:
+      - name: klight-controller
+        image: localhost:32000/klight.controller:v0.1.0-k8s
+        imagePullPolicy: Always
+        command: ["./controller"]
+        args: ["-inCluster=true"]
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi

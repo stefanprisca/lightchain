@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/stefanprisca/lightchain v0.0.0-20200911104633-d8de3e9c1183
+	github.com/stretchr/testify v1.3.0
 	google.golang.org/grpc v1.32.0
 	k8s.io/api v0.0.0-20190813020757-36bff7324fb7
 	k8s.io/apimachinery v0.0.0-20190809020650-423f5d784010

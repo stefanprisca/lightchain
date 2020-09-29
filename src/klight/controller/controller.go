@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
@@ -155,17 +156,31 @@ func (c *Controller) runWorker() {
 }
 
 func main() {
-	var kubeconfig string
-	var master string
+	var (
+		kubeconfig string
+		master     string
+		inCluster  bool
+	)
 
 	flag.StringVar(&kubeconfig, "kubeconfig", "/var/snap/microk8s/current/credentials/client.config", "absolute path to the kubeconfig file")
 	flag.StringVar(&master, "master", "", "master url")
+	flag.BoolVar(&inCluster, "inCluster", false, "if we are running in a cluster")
 	flag.Parse()
 
 	// creates the connection
-	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
-	if err != nil {
-		klog.Fatal(err)
+
+	var config *rest.Config
+	var err error
+	if !inCluster {
+		config, err = clientcmd.BuildConfigFromFlags(master, kubeconfig)
+		if err != nil {
+			klog.Fatal(err)
+		}
+	} else {
+		config, err = rest.InClusterConfig()
+		if err != nil {
+			klog.Fatal(err)
+		}
 	}
 
 	// creates the clientset
