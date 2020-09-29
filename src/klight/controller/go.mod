@@ -1,4 +1,4 @@
-module github.com/stefanprisca/lightchain/klight/controller
+module github.com/stefanprisca/lightchain/src/klight/controller
 
 go 1.14
 

@@ -51,6 +51,12 @@ Classical databases can be a good option, but they require another whole server 
 On the other hand, volume shares like Kubernetes PVC are another simple option to store some data. But these don't guarantee that the data you store will be the same over all  nodes. Nor is there the guarantee of total order over the events. For example, if two k8s replicas write something at the same time, which will be the global state that clients see?
 
 
+# Limitations
+
+* Does not implement any consensus algorithm. Peers send messages as they see changes and accept changes if they fit their latest block. 
+    * Possible changes to ensure more reliable communication would be to implement a RoundRobin ticketing consensus.
+
+
 # Architecture
 
 # Getting Started
