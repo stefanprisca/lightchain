@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -36,7 +37,7 @@ func main() {
 	var host = flag.String("host", "", "the host to listen to")
 	var port = flag.Int("port", 9081, "the port")
 
-	var _ = flag.String("stateFile", "", "the path to the state file")
+	var statePath = flag.String("statePath", "", "the path to the state file")
 	flag.Parse()
 
 	log.Printf("Starting the lightpeer with options: v: %v ; repo: %s ; otlp: %s\n",
@@ -57,7 +58,7 @@ func main() {
 		log.Fatalf("failed to get ip: %v", err)
 	}
 
-	peerAddress := fmt.Sprintf("%s:%d", localIp, port)
+	peerAddress := fmt.Sprintf("%s:%d", localIp, *port)
 	tr := global.Tracer(fmt.Sprintf("%s-server@%s", lpack.ServiceName, peerAddress))
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpctrace.UnaryServerInterceptor(tr)),
@@ -71,7 +72,12 @@ func main() {
 		Network:     []pb.PeerInfo{meta},
 	}
 
-	klp := &klightpeer{lp}
+	klp := &klightpeer{
+		LightpeerServer: lp,
+		statePath:       *statePath,
+		lastModTime:     time.Now(),
+	}
+	go klp.startFileListener()
 
 	pb.RegisterLightpeerServer(grpcServer, klp)
 	healthpb.RegisterHealthServer(grpcServer, klp)

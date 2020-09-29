@@ -16,69 +16,93 @@ package main
 
 import (
 	"context"
+	"io/ioutil"
 	"log"
-	"net"
 	"os"
+	"time"
 
 	pb "github.com/stefanprisca/lightchain/src/api/lightpeer"
-	lpack "github.com/stefanprisca/lightchain/src/lightpeer"
+	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 type klightpeer struct {
-	*lpack.Lightpeer
+	pb.LightpeerServer
+	health.Server
+
+	statePath   string
+	lastModTime time.Time
 }
 
 func (klp *klightpeer) Persist(ctx context.Context, tReq *pb.PersistRequest) (*pb.PersistResponse, error) {
-	return klp.Lightpeer.Persist(ctx, tReq)
+	return klp.LightpeerServer.Persist(ctx, tReq)
 }
 
 func (klp *klightpeer) Query(qReq *pb.EmptyQueryRequest, stream pb.Lightpeer_QueryServer) error {
-	return klp.Lightpeer.Query(qReq, stream)
+	return klp.LightpeerServer.Query(qReq, stream)
 }
 
 func (klp *klightpeer) JoinNetwork(ctx context.Context, joinReq *pb.JoinRequest) (*pb.JoinResponse, error) {
-	return klp.Lightpeer.JoinNetwork(ctx, joinReq)
+	return klp.LightpeerServer.JoinNetwork(ctx, joinReq)
 }
 
 func (klp *klightpeer) ConnectNewPeer(cReq *pb.ConnectRequest, stream pb.Lightpeer_ConnectNewPeerServer) error {
-	return klp.Lightpeer.ConnectNewPeer(cReq, stream)
+	return klp.LightpeerServer.ConnectNewPeer(cReq, stream)
 
 }
 
 func (klp *klightpeer) NotifyNewBlock(ctx context.Context, newBlock *pb.Lightblock) (*pb.NewBlockResponse, error) {
-	return klp.Lightpeer.NotifyNewBlock(ctx, newBlock)
+	newBlockRsvp, err := klp.LightpeerServer.NotifyNewBlock(ctx, newBlock)
+	if err != nil || newBlock.Type == pb.Lightblock_NETWORK {
+		return newBlockRsvp, err
+	}
+	klp.updateStateFile(newBlock)
+	return newBlockRsvp, err
 }
 
 func (klp *klightpeer) Check(ctx context.Context, in *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
-	return klp.Lightpeer.Check(ctx, in)
+	return &healthpb.HealthCheckResponse{
+		Status: healthpb.HealthCheckResponse_SERVING,
+	}, nil
 }
 
-// GetState returns the current peer state
-func (klp *klightpeer) GetState() pb.Lightblock {
-	return klp.Lightpeer.GetState()
-}
-
-func startFileListener(statePath string) {
-	stateFile, err := os.OpenFile(statePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	listener, err := net.FileListener(stateFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer func() {
-		err := stateFile.Close()
+func (klp *klightpeer) startFileListener() {
+	for {
+		log.Println("Checking for filechanges")
+		// Wait for a connection.
+		stateFile, err := os.OpenFile(klp.statePath, os.O_RDONLY, 0644)
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = listener.Close()
+
+		stats, err := stateFile.Stat()
 		if err != nil {
 			log.Fatal(err)
 		}
-	}()
 
+		err = stateFile.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if stats.ModTime().After(klp.lastModTime) {
+			log.Println("File changed!")
+			klp.lastModTime = stats.ModTime()
+
+			ctx := context.Background()
+			payload, err := ioutil.ReadFile(klp.statePath)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			klp.Persist(ctx, &pb.PersistRequest{Payload: payload})
+		}
+
+		<-time.After(100 * time.Millisecond)
+	}
+}
+
+func (klp *klightpeer) updateStateFile(block *pb.Lightblock) error {
+	klp.lastModTime = time.Now()
+	return ioutil.WriteFile(klp.statePath, block.Payload, 0644)
 }

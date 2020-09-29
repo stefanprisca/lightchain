@@ -23,11 +23,11 @@ spec:
   - name: tempsto
     emptyDir: {}
   containers:
-  - name: lightpeer
-    image: localhost:32000/lightpeer:0.0.1-k8s
+  - name: klightpeer
+    image: localhost:32000/klight.peer:v0.1.0-k8s
     imagePullPolicy: Always
-    command: ["./lightpeer"]
-    args: ["-repo=$(LP_BLOCKREPO)", "-host=0.0.0.0", "-otlp=otel-collector.observability.svc.cluster.local:55680", "-v"] #"-statePath=$(STATE_PATH)", 
+    command: ["./klightpeer"]
+    args: ["-repo=$(LP_BLOCKREPO)", "-host=0.0.0.0", "-otlp=otel-collector.observability.svc.cluster.local:55680", "-v", "-statePath=$(STATE_PATH)"]
     resources:
       limits:
         cpu: 100m
@@ -39,7 +39,7 @@ spec:
       - name: LP_BLOCKREPO
         value: "/usr/share/tempsto"
       - name: STATE_PATH
-        value: "/usr/share/tempsto" 
+        value: "/usr/share/tempsto/index.html" 
     ports:
     - containerPort: 9081 # gRPC port.
     volumeMounts:
