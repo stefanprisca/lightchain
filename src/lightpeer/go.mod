@@ -1,4 +1,4 @@
-module github.com/stefanprisca/lightchain/lightpeer
+module github.com/stefanprisca/lightchain/src/lightpeer
 
 go 1.14
 
