@@ -62,4 +62,4 @@ For this application, the `lpAddress` is passed through the environment variable
 
 As a design decision, the client application is responsible for connecting the peers together and forming the actual network. This decision was made in order to simplify the logic contained in the peers themselves, and to allow applications to configure the network however they see fit.
 
-To make it easy for kubernetes applications, the `klight-controller` can be used to join peers in the same network. See [](../../src/klight/controller/README.md) for details
+To make it easy for kubernetes applications, the `klight-controller` can be used to join peers in the same network. See [controller](../../src/klight/controller/README.md) for details
