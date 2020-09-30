@@ -63,6 +63,24 @@ This is a prototype project only, missing functionality required for it to be us
 # Getting Started
 
 For getting started, you need to build and run the docker images yourself. See the examples for more details.
+The `lightpeer` main file is located in the [lightserver](src/lightserver) package, and should be built into a Docker image for use. You can also have a look at the input parameters to see how it should be ran:
+
+```
+Usage of ./lightserver:
+  -host string
+        the host to listen to
+  -otlp string
+        backend address for otlp traces and metrics (default "localhost:30080")
+  -port int
+        the port (default 9081)
+  -repo string
+        repo for storing the generated blocks (default "testdata")
+  -v    runs verbose - gathering traces with otel
+```
+
+# OpenTelemetry logging
+
+The `lightpeer` service, which is at the core of lightchain, has OpenTelementry logging built at the core. In order to make use of it, and trace the communication going on between your peers, you have to pass in the following options: `-v -otlp <OpenTelemetryCollectorURL>`. The URL corresponds to a running instance of OTel Collector, where the traces will be sent.
 
 # Examples
 
