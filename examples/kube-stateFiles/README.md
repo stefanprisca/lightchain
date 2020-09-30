@@ -5,10 +5,14 @@ The example includes two pods, one writing the current date, and the other readi
 
 # building the example
 
+The example uses the `klightpeer` version of the lightpeer, which is a wrapper over the lightpeer interface listening for changes to a `stateFile` and pushing them on the network. See [klightpeer](../../src/klight/klightpeer/README.md) for details. You also need to build this before moving on with the example. You'll also need the klight [controller](../../src/klight/controller/README.md).
+
 In order to run, one can follow the makefile commands:
 
-1. make install-klight-operator
-2. make deploy
+```
+make install-klight-operator
+make deploy
+```
 
 # Deep dive
 
