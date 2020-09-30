@@ -26,7 +26,6 @@ import (
 
 func main() {
 	var lpAddress = flag.String("lpAddress", ":9081", "the address for the peer to connect to")
-	var persisterAddress = flag.String("persisterAddress", "", "the address for the persister to connect to")
 	flag.Parse()
 
 	log.Println("Starting reader with peer address %s", *lpAddress)
@@ -40,17 +39,6 @@ func main() {
 	defer func() { _ = conn.Close() }()
 
 	client := pb.NewLightpeerClient(conn)
-	ctx := context.Background()
-
-	log.Println("Trying to join persister at address %s", *persisterAddress)
-
-	_, err = client.JoinNetwork(ctx, &pb.JoinRequest{
-		Address: *persisterAddress,
-	})
-
-	if err != nil {
-		log.Fatalf("did not connect: %s", err)
-	}
 
 	err = readMessages(client)
 	if err != nil {

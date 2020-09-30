@@ -12,30 +12,10 @@
 # // See the License for the specific language governing permissions and
 # // limitations under the License.
 
-
-apiVersion: v1
-kind: Service
-metadata:
-  name: persister
-  namespace: lightchain
-  labels:
-    app: persister
-spec:
-  ports:
-  - port: 9081
-    targetPort: 9081
-    name: lightpeer
-  clusterIP: None
-  selector:
-    app: persister
-
----
-
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: persister
-  namespace: lightchain
 spec:
   selector:
     matchLabels:
@@ -46,15 +26,12 @@ spec:
     metadata:
       labels:
         app: persister # has to match .spec.selector.matchLabels
-        klight.networkID: myFirstNetwork # the label that KLight operator listens to to connect the pod to the network.
+        klight.networkId: myFirstNetwork # the label that KLight operator listens to to connect the pod to the network.
     spec:
       containers:
       - name: persister
         image: localhost:32000/persister:0.1.0
         imagePullPolicy: Always
-        env:
-          - name: REL_STO_PATH
-            value: "foo/faa"
       - name: lightpeer
         image: localhost:32000/lightpeer:v0.1.0-k8s
         imagePullPolicy: Always

@@ -61,17 +61,4 @@ For this application, the `lpAddress` is passed through the environment variable
 
 As a design decision, the client application is responsible for connecting the peers together and forming the actual network. This decision was made in order to simplify the logic contained in the peers themselves, and to allow applications to configure the network however they see fit.
 
-In order to connect two `lightpeers` together, simply use the `JoinNetwork` request. For this example, the *reader* will connect to the *persister* peer in the following way:
-```go
-client := pb.NewLightpeerClient(conn)
-ctx := context.Background()
-log.Println("Trying to join persister at address %s", *persisterAddress)
-_, err = client.JoinNetwork(ctx, &pb.JoinRequest{
-    Address: *persisterAddress,
-})
-if err != nil {
-    log.Fatalf("did not connect: %s", err)
-}
-```  
-The `persisterAddress` from above corresponds to the address of the *persister-0* pod running as part of the persister stateful set: *persister-0.persister.lightchain.svc.cluster.local:9081*.
-
+To make it easy for kubernetes applications, the `klight-controller` can be used to join peers in the same network. See [](../../src/klight/controller/README.md) for details

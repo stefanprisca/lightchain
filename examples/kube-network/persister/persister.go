@@ -55,7 +55,7 @@ func persistMessages(client pb.LightpeerClient) error {
 		time.Sleep(time.Minute)
 		message := fmt.Sprintf("Hello from the persistor! it's %v o'clock!", time.Now())
 		persistReq := &pb.PersistRequest{
-			Payload: []byte(),
+			Payload: []byte(message),
 		}
 		_, err := client.Persist(ctxt, persistReq)
 		if err != nil {

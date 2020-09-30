@@ -52,12 +52,13 @@ On the other hand, volume shares like Kubernetes PVC are another simple option t
 
 # Limitations
 
+This is a prototype project only, missing functionality required for it to be used in a production environment.
+
 * Does not implement any consensus algorithm. Peers send messages as they see changes and accept changes if they fit their latest block. 
     * Possible changes to ensure more reliable communication would be to implement a RoundRobin ticketing consensus.
 * works only in one chain, and a single state.
-
-
-# Architecture
+* On kubernetes, the controller only works on the master branch
+* no encryption is used for storing the blocks or for the p2p communication
 
 # Getting Started
 

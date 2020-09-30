@@ -15,12 +15,16 @@
 DockerHost = localhost:32000
 
 build-lightpeer:
-	docker build -t $(DockerHost)/lightpeer:v0.1.0-k8s ../../src/lightpeer/main
+	docker build -t $(DockerHost)/lightpeer:v0.1.0-k8s -f ../../src/lightpeer/main/Dockerfile ../../src/lightpeer/
 	docker push $(DockerHost)/lightpeer:v0.1.0-k8s
 
-deploy-example:
-	kubectl create ns lightpeer
+deploy-controller:
+	docker build -t $(DockerHost)/klight.controller:v0.1.0-k8s ../../src/klight/controller
+	docker push $(DockerHost)/klight.controller:v0.1.0-k8s
 
+	k apply -f ../../src/klight/controller/k8s/controller.yaml
+
+deploy-example:
 	docker build -t $(DockerHost)/persister:0.1.0 ./persister
 	docker push $(DockerHost)/persister:0.1.0
 	kubectl apply -f persister/

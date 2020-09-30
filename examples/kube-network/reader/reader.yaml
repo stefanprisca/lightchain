@@ -1,26 +1,8 @@
-apiVersion: v1
-kind: Service
-metadata:
-  name: reader
-  namespace: lightchain
-  labels:
-    app: reader
-spec:
-  ports:
-  - port: 80
-    targetPort: 9081
-    name: lightpeer
-  clusterIP: None
-  selector:
-    app: reader
-
----
 
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: reader
-  namespace: lightchain
 spec:
   selector:
     matchLabels:
@@ -31,16 +13,12 @@ spec:
     metadata:
       labels:
         app: reader # has to match .spec.selector.matchLabels
+        klight.networkId: myFirstNetwork # the label that KLight operator listens to to connect the pod to the network.
     spec:
       containers:
       - name: reader
         image: localhost:32000/reader:0.1.0
         imagePullPolicy: Always
-        env:
-          - name: LP_ADDRESS
-            value: ":9081"
-          - name: PERSISTER_ADDRESS
-            value: "persister-0.persister.lightchain.svc.cluster.local:9081"
       - name: lightpeer
         image: localhost:32000/lightpeer:v0.1.0-k8s
         imagePullPolicy: Always
