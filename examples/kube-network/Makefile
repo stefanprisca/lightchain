@@ -15,8 +15,8 @@
 DockerHost = localhost:32000
 
 build-lightpeer:
-	docker build -t $(DockerHost)/lightpeer:example ../../
-	docker push $(DockerHost)/lightpeer:example
+	docker build -t $(DockerHost)/lightpeer:v0.1.0-k8s ../../src/lightpeer/main
+	docker push $(DockerHost)/lightpeer:v0.1.0-k8s
 
 deploy-example:
 	kubectl create ns lightpeer

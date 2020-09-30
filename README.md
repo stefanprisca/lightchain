@@ -1,12 +1,11 @@
-# lightchain - WIP
+# lightchain
 
 A lightweight blockchain network which achieves distributed state management through a simple p2p communication protocol based on gRPC.
-
-__WIP__ this project is under development and is subject to changes. Neither documentation nor code are in a stable format.
 
 # Vision
 
 The goal of this project is to provide the simplest way to persist a small data object (state), synchronize it across multiple nodes and provide a common history over it. At the moment, all data is stored using the local file systems. 
+
 Ideally, the client application does not need to know about the underlying peer network. The lightchain becomes invisible, and is responsible for taking a local state and synchronizing it over to the other peers of the network. Moreover, the completely distributed p2p platform means there is no central storage, the network scaling with the application itself. With features such as self-recovery and easy join, the network can maintain the states and automatically rejoin failed instances.
 This achieves a 'stateless' behavior, and allows applications to communicate with each other as if they were on the same node, while simplifying client applications by not requiring any library knowledge and being transparent about the way data is stored. 
 
@@ -55,12 +54,16 @@ On the other hand, volume shares like Kubernetes PVC are another simple option t
 
 * Does not implement any consensus algorithm. Peers send messages as they see changes and accept changes if they fit their latest block. 
     * Possible changes to ensure more reliable communication would be to implement a RoundRobin ticketing consensus.
+* works only in one chain, and a single state.
 
 
 # Architecture
 
 # Getting Started
 
+For getting started, you need to build and run the docker images yourself. See the examples for more details.
+
 # Examples
 
-see [k8s example](examples/kube-network)
+see [k8s network](examples/kube-network) for using the `lightpeer` interface directly
+see [k8s stateFiles](examples/kube-stateFiles) for using the `klightpeer` k8s wrapper and state files

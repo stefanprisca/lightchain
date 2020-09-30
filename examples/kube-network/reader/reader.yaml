@@ -42,7 +42,7 @@ spec:
           - name: PERSISTER_ADDRESS
             value: "persister-0.persister.lightchain.svc.cluster.local:9081"
       - name: lightpeer
-        image: localhost:32000/lightpeer:example
+        image: localhost:32000/lightpeer:v0.1.0-k8s
         imagePullPolicy: Always
         command: ["./lightpeer"]
         args: ["-repo=$(LP_BLOCKREPO)", "-host=0.0.0.0"]

@@ -18,6 +18,7 @@ import (
 	"context"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"os"
 	"time"
 
@@ -68,25 +69,12 @@ func (klp *klightpeer) Check(ctx context.Context, in *healthpb.HealthCheckReques
 
 func (klp *klightpeer) startFileListener() {
 	for {
-		log.Println("Checking for filechanges")
-		// Wait for a connection.
-		stateFile, err := os.OpenFile(klp.statePath, os.O_RDONLY, 0644)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		stats, err := stateFile.Stat()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		err = stateFile.Close()
+		stats, err := os.Lstat(klp.statePath)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		if stats.ModTime().After(klp.lastModTime) {
-			log.Println("File changed!")
 			klp.lastModTime = stats.ModTime()
 
 			ctx := context.Background()
@@ -98,7 +86,12 @@ func (klp *klightpeer) startFileListener() {
 			klp.Persist(ctx, &pb.PersistRequest{Payload: payload})
 		}
 
-		<-time.After(100 * time.Millisecond)
+		// Add a bit of randomness to the wait period to avoid similar read times.
+		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+		maxJitterNanos := int64(float64(time.Second))
+		jitter := time.Duration(rng.Int63n(maxJitterNanos))
+		log.Println("sleeping jitter ", jitter)
+		<-time.After(time.Second + jitter)
 	}
 }
 
