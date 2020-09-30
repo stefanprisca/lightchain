@@ -7,9 +7,10 @@ The set-up consists of two services: a *persister* which will save messages usin
 
 # Starting the example
 
+Before starting this example, you need an image of the `lightpeer` service. Build it from [lightserver](../../src/lightserver). Make sure that the image names correspond.
+
 One can use the Makefile to run the example in Kubernetes:
 ```
-make build-lightpeer
 make deploy-example
 ```
 

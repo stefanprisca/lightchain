@@ -13,7 +13,7 @@
 # // limitations under the License.
 
 
-FROM golang:1.14.4 as build
+FROM golang:1.15 as build
 
 # Set the Current Working Directory inside the container
 WORKDIR /reader
@@ -31,4 +31,4 @@ FROM alpine:latest
 WORKDIR /reader/
 COPY --from=build /reader/bin .
 
-CMD ["sh", "-c", "./reader -lpAddress=$LP_ADDRESS -persisterAddress=$PERSISTER_ADDRESS"]
+CMD ["sh", "-c", "./reader -lpAddress=$LP_ADDRESS"]

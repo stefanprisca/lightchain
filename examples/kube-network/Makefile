@@ -14,10 +14,6 @@
 
 DockerHost = localhost:32000
 
-build-lightpeer:
-	docker build -t $(DockerHost)/lightpeer:v0.1.0-k8s -f ../../src/lightpeer/main/Dockerfile ../../src/lightpeer/
-	docker push $(DockerHost)/lightpeer:v0.1.0-k8s
-
 deploy-controller:
 	docker build -t $(DockerHost)/klight.controller:v0.1.0-k8s ../../src/klight/controller
 	docker push $(DockerHost)/klight.controller:v0.1.0-k8s

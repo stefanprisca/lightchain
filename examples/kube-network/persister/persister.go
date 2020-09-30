@@ -59,9 +59,10 @@ func persistMessages(client pb.LightpeerClient) error {
 		}
 		_, err := client.Persist(ctxt, persistReq)
 		if err != nil {
-			return err
+			log.Println(err)
+		} else {
+			log.Println("sent message: %v", persistReq)
 		}
-		log.Println("sent message: %v", persistReq)
 	}
 	return nil
 }

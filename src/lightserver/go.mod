@@ -2,10 +2,7 @@ module github.com/stefanprisca/lightchain/src/lightserver
 
 go 1.15
 
-replace (
-	github.com/stefanprisca/lightchain => ../../
-	go.opentelemetry.io/otel => go.opentelemetry.io/otel v0.11.0
-)
+replace go.opentelemetry.io/otel => go.opentelemetry.io/otel v0.11.0
 
 require (
 	github.com/google/uuid v1.1.2

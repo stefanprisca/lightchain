@@ -59,9 +59,10 @@ func readMessages(client pb.LightpeerClient) error {
 		log.Println("reading the message stream...")
 		msg, err := queryClient.Recv()
 		if err != nil {
-			return err
+			log.Println(err)
+		} else {
+			log.Println(string(msg.Payload))
 		}
-		log.Println(string(msg.Payload))
 		time.Sleep(time.Minute)
 	}
 	return nil

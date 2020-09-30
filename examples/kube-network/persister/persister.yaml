@@ -32,11 +32,16 @@ spec:
       - name: persister
         image: localhost:32000/persister:0.1.0
         imagePullPolicy: Always
+        command: ["./persister"]
+        args: ["-lpAddress=$(LP_ADDRESS)"]
+        env:
+          - name: LP_ADDRESS
+            value: ":9081"
       - name: lightpeer
         image: localhost:32000/lightpeer:v0.1.0-k8s
         imagePullPolicy: Always
         command: ["./lightpeer"]
-        args: ["-repo=$(LP_BLOCKREPO)", "-host=0.0.0.0"]
+        args: ["-repo=$(LP_BLOCKREPO)", "-host=0.0.0.0", "-otlp=otel-collector.observability.svc.cluster.local:55680", "-v"]
         resources:
           limits:
             cpu: 100m
