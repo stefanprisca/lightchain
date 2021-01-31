@@ -10,7 +10,7 @@ pipelines:
         git: https://github.com/stefanprisca/lightchain.git
         shallow_clone: true
         auto_update: true
-        branch: master
+        branch: feature/gocd
     stages:
     - stage1:
         fetch_materials: true
@@ -25,6 +25,6 @@ pipelines:
             tasks:
             - exec:
                 arguments:
-                - Hello World
+                - Hello World from Github!
                 command: echo
                 run_if: passed
